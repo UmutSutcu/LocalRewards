@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Wallet, AlertCircle, Download, RefreshCw } from 'lucide-react';
 import Button from './Button';
 import Card from './Card';
@@ -17,10 +17,17 @@ const WalletModal: React.FC<WalletModalProps> = ({
   onClose,   title = "Wallet Connection Required",
   description = "You need to connect your wallet to perform this transaction."
 }) => {
-  const { isFreighterInstalled, connectWallet, isLoading } = useWalletContext();
+  const { isFreighterInstalled, connectWallet, isLoading, isConnected } = useWalletContext();
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCheckingInstallation, setIsCheckingInstallation] = useState(false);
+
+  // Close modal automatically when wallet connects
+  useEffect(() => {
+    if (isConnected && isOpen) {
+      onClose();
+    }
+  }, [isConnected, isOpen, onClose]);
 
   if (!isOpen) return null;
 

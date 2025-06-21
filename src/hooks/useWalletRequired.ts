@@ -9,57 +9,41 @@ export const useWalletRequired = () => {
     isFreighterInstalled, 
     showWalletModal, 
     setShowWalletModal 
-  } = useWalletContext();
-
-  /**
-   * Wallet bağlantısını kontrol eder, bağlı değilse modal gösterir
-   * Bir kez bağlandıktan sonra tekrar bağlanmaya çalışmaz
+  } = useWalletContext();  /**
+   * Check wallet connection status, show modal if not connected
+   * Returns true if wallet is connected, false if modal was shown
    */
   const requireWalletWithModal = async (): Promise<boolean> => {
-    // Zaten bağlıysa, bağlantıyı doğrula
+    // If already connected and has address, return true immediately
     if (isConnected && address) {
-      try {
-        // Freighter API'sinin çalıştığını doğrula
-        const connection = await freighterService.requireWalletConnection();
-        return connection.publicKey === address;
-      } catch (error) {
-        console.warn('Wallet connection validation failed:', error);
-        // Bağlantı geçersizse modal göster
-        setShowWalletModal(true);
-        return false;
-      }
+      return true;
     }
     
-    // Bağlı değilse modal göster
-    if (!isConnected) {
-      setShowWalletModal(true);
-      return false;
-    }
-    
+    // Not connected, show modal for user to connect
+    setShowWalletModal(true);
     return false;
   };
-
   /**
-   * Wallet bağlantısını gerektirir, otomatik bağlanma seçeneği ile
-   * @deprecated Bu fonksiyon yerine requireWalletWithModal kullanın
+   * Require wallet connection with auto-connect option
+   * @deprecated Use requireWalletWithModal instead
    */
   const requireWallet = async (options?: {
     title?: string;
     description?: string;
     autoConnect?: boolean;
   }): Promise<{ publicKey: string; network: string }> => {
-    // Zaten bağlıysa wallet bilgilerini döndür
+    // If already connected, return wallet details immediately
     if (isConnected && address) {
       return await freighterService.requireWalletConnection();
     }
 
-    // Otomatik bağlanma kapalıysa veya Freighter yüklü değilse modal göster
+    // If auto-connect is disabled or Freighter is not installed, show modal
     if (!options?.autoConnect || !isFreighterInstalled) {
       setShowWalletModal(true);
       throw new Error('WALLET_REQUIRED');
     }
 
-    // Otomatik bağlanmaya çalış (sadece bir kez)
+    // Try auto-connect (only once)
     try {
       await connectWallet();
       return await freighterService.requireWalletConnection();
@@ -68,37 +52,36 @@ export const useWalletRequired = () => {
       throw new Error('WALLET_REQUIRED');
     }
   };
-
   /**
-   * Mevcut bağlı wallet adresini döndürür
+   * Get currently connected wallet address
    */
   const getConnectedAddress = (): string | null => {
     return isConnected ? address : null;
   };
 
   /**
-   * Wallet bağlantı durumunu kontrol eder
+   * Check if wallet is ready for transactions
    */
   const isWalletReady = (): boolean => {
     return isConnected && !!address && isFreighterInstalled;
   };
 
   return {
-    // Durum bilgileri
+    // Status information
     isConnected,
     address,
     isFreighterInstalled,
     isWalletReady: isWalletReady(),
     
-    // Ana fonksiyonlar
+    // Main functions
     requireWalletWithModal,
     getConnectedAddress,
     
-    // Modal kontrolü
+    // Modal control
     showWalletModal,
     setShowWalletModal,
     
-    // Geriye uyumluluk için (deprecated)
+    // Backward compatibility (deprecated)
     requireWallet,
   };
 };

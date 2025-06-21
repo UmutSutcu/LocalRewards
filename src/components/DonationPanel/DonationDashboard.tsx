@@ -55,14 +55,34 @@ export const DonationDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedTab, setSelectedTab] = useState<'campaigns' | 'my-donations' | 'analytics'>('campaigns');
-  const { requireWalletWithModal, address } = useWalletRequired();
-
-  // Wallet adresini otomatik güncelle
+  const [pendingAction, setPendingAction] = useState<'donate' | 'selectCampaign' | null>(null);
+  const [pendingCampaign, setPendingCampaign] = useState<DonationCampaign | null>(null);
+  const { requireWalletWithModal, address } = useWalletRequired();  // Auto-update wallet address and handle pending actions
   useEffect(() => {
     if (address) {
       setWalletAddress(address);
+      
+      // Execute pending action if any
+      if (pendingAction) {
+        switch (pendingAction) {
+          case 'donate':
+            // Continue with donation process
+            if (pendingCampaign) {
+              setSelectedCampaign(pendingCampaign);
+              setPendingCampaign(null);
+            }
+            break;
+          case 'selectCampaign':
+            if (pendingCampaign) {
+              setSelectedCampaign(pendingCampaign);
+              setPendingCampaign(null);
+            }
+            break;
+        }
+        setPendingAction(null);
+      }
     }
-  }, [address]);
+  }, [address, pendingAction, pendingCampaign]);
 
   // Mock data
   useEffect(() => {
@@ -147,12 +167,13 @@ export const DonationDashboard: React.FC = () => {
   const categories = ['all', 'Education', 'Animal Rights', 'Social Aid', 'Emergency', 'Health'];  const handleDonate = async () => {
     if (!selectedCampaign || !donationAmount) return;
 
-    // Wallet bağlı değilse modal göster
-    if (!address) {
-      const hasWallet = await requireWalletWithModal();
-      if (!hasWallet) {
-        return;
-      }
+    // Check wallet connection first
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      setPendingAction('donate');
+      setPendingCampaign(selectedCampaign);
+      return;
     }
 
     setIsDonating(true);
@@ -352,14 +373,15 @@ export const DonationDashboard: React.FC = () => {
                 </div>
               </div>              <Button 
                 onClick={async () => {
-                  // Wallet bağlı değilse modal göster
-                  if (!address) {
-                    const hasWallet = await requireWalletWithModal();
-                    if (!hasWallet) {
-                      return;
-                    }
+                  // Check wallet connection first
+                  const isWalletConnected = await requireWalletWithModal();
+                  if (!isWalletConnected) {
+                    // Modal was shown, set pending action to execute after wallet connects
+                    setPendingAction('selectCampaign');
+                    setPendingCampaign(campaign);
+                    return;
                   }
-                  // Wallet bağlıysa donation modal'ını aç
+                  // Wallet is connected, open donation modal
                   setSelectedCampaign(campaign);
                 }}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"

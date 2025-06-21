@@ -25,17 +25,16 @@ export const useWallet = () => {
     } catch (error) {
       console.error('Failed to load balance:', error);
     }
-  }, []);
-  useEffect(() => {
+  }, []);  useEffect(() => {
     setIsPasskeySupported(passkeyWalletService.isPasskeySupported());
     
-    // Sadece Freighter kurulu olup olmadığını kontrol et
+    // Only check if Freighter is installed
     const checkFreighter = async () => {
       const installed = await freighterService.isFreighterInstalled();
       setIsFreighterInstalled(installed);
       
-      // Kaydedilmiş wallet varsa sadece state'i restore et
-      // Otomatik yeniden bağlanma yapma
+      // If saved wallet exists, only restore state
+      // Don't auto-reconnect
       const savedWallet = localStorage.getItem('connectedWallet');
       const walletType = localStorage.getItem('walletType');
       
@@ -47,17 +46,17 @@ export const useWallet = () => {
             address: savedWallet,
           }));
           
-          // Bakiye yükle
+          // Load balance
           loadBalance(savedWallet);
         } else if (walletType === 'passkey') {
-          // Passkey bağlantıları için
+          // For passkey connections
           setWalletState(prev => ({
             ...prev,
             isConnected: true,
             address: savedWallet,
           }));
           
-          // Bakiye yükle
+          // Load balance
           loadBalance(savedWallet);
         }
       }

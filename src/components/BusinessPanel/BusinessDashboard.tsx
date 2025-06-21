@@ -52,9 +52,9 @@ const BusinessDashboard: React.FC = () => {
   const [showCreateToken, setShowCreateToken] = useState(false);
   const [showDistributeTokens, setShowDistributeTokens] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'createToken' | 'distributeTokens' | null>(null);
   const { requireWalletWithModal, address } = useWalletRequired();
-
-  // Wallet adresini otomatik güncelle
+  // Auto-update wallet address
   useEffect(() => {
     if (address) {
       setWalletAddress(address);
@@ -103,38 +103,47 @@ const BusinessDashboard: React.FC = () => {
       description: 'Coffee shop reward tokens'
     }
   ];  const handleCreateToken = async () => {
-    // Wallet bağlı değilse modal göster
-    if (!address) {
-      const hasWallet = await requireWalletWithModal();
-      if (!hasWallet) {
-        return;
-      }
+    // Check wallet connection first
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      setPendingAction('createToken');
+      return;
     }
-
-    // Wallet bağlıysa direkt işlemi başlat
-    try {
-      setShowCreateToken(true);
-    } catch (error) {
-      console.error('Token creation failed:', error);
-    }
+    
+    // Wallet is connected, proceed with token creation
+    setShowCreateToken(true);
   };
 
   const handleDistributeTokens = async () => {
-    // Wallet bağlı değilse modal göster  
-    if (!address) {
-      const hasWallet = await requireWalletWithModal();
-      if (!hasWallet) {
-        return;
-      }
+    // Check wallet connection first
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      setPendingAction('distributeTokens');
+      return;
     }
-
-    // Wallet bağlıysa direkt işlemi başlat
-    try {
-      setShowDistributeTokens(true);
-    } catch (error) {
-      console.error('Token distribution failed:', error);
-    }
+    
+    // Wallet is connected, proceed with token distribution
+    setShowDistributeTokens(true);
   };
+
+  // Auto-trigger pending actions when wallet connects
+  useEffect(() => {
+    if (address && pendingAction) {
+      // Execute the pending action now that wallet is connected
+      switch (pendingAction) {
+        case 'createToken':
+          setShowCreateToken(true);
+          break;
+        case 'distributeTokens':
+          setShowDistributeTokens(true);
+          break;
+      }
+      // Clear the pending action
+      setPendingAction(null);
+    }
+  }, [address, pendingAction]);
 
   const renderOverview = () => (
     <div className="space-y-6">

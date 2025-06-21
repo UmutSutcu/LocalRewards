@@ -58,14 +58,38 @@ const CustomerDashboard: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const { requireWalletWithModal, address } = useWalletRequired();
-
-  // Wallet adresini otomatik güncelle
+  const [pendingAction, setPendingAction] = useState<'earnTokens' | 'redeemReward' | 'scanQR' | null>(null);
+  const [pendingActionData, setPendingActionData] = useState<string | null>(null);
+  const { requireWalletWithModal, address } = useWalletRequired();  // Auto-update wallet address and handle pending actions
   useEffect(() => {
     if (address) {
       setWalletAddress(address);
+      
+      // Execute pending action if any
+      if (pendingAction) {
+        switch (pendingAction) {
+          case 'earnTokens':
+            if (pendingActionData) {
+              console.log('Earning tokens from:', pendingActionData);
+              // Execute earn tokens logic here
+            }
+            break;
+          case 'redeemReward':
+            if (pendingActionData) {
+              console.log('Redeeming reward:', pendingActionData);
+              // Execute redeem logic here
+            }
+            break;
+          case 'scanQR':
+            setShowQRScanner(true);
+            break;
+        }
+        // Clear pending actions
+        setPendingAction(null);
+        setPendingActionData(null);
+      }
     }
-  }, [address]);
+  }, [address, pendingAction, pendingActionData]);
 
   // Mock data - gerçek uygulamada API'den gelecek
   const tokenBalances: TokenBalance[] = [
@@ -176,34 +200,36 @@ const CustomerDashboard: React.FC = () => {
   ];
 
   const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
-    // Wallet bağlı değilse modal göster
-    if (!address) {
-      const hasWallet = await requireWalletWithModal();
-      if (!hasWallet) {
-        return;
-      }
+    // Check wallet connection first
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      setPendingAction('earnTokens');
+      setPendingActionData(businessId);
+      return;
     }
 
     try {
       console.log('Earning tokens from:', businessId);
-      // QR kod tarama veya manuel token kazanma logic'i
+      // QR code scanning or manual token earning logic
     } catch (error) {
       console.error('Token earning failed:', error);
     }
   };
 
   const handleRedeemReward = async (rewardId: string) => {
-    // Wallet bağlı değilse modal göster
-    if (!address) {
-      const hasWallet = await requireWalletWithModal();
-      if (!hasWallet) {
-        return;
-      }
+    // Check wallet connection first
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      setPendingAction('redeemReward');
+      setPendingActionData(rewardId);
+      return;
     }
 
     try {
       console.log('Redeeming reward:', rewardId);
-      // Reward redemption logic'i
+      // Reward redemption logic
     } catch (error) {
       console.error('Reward redemption failed:', error);
     }
@@ -270,19 +296,20 @@ const CustomerDashboard: React.FC = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">        <Button 
           onClick={async () => {
-            // Wallet bağlı değilse modal göster
-            if (!address) {
-              const hasWallet = await requireWalletWithModal();
-              if (!hasWallet) {
-                return;
-              }
+            // Check wallet connection first
+            const isWalletConnected = await requireWalletWithModal();
+            if (!isWalletConnected) {
+              // Modal was shown, set pending action to execute after wallet connects
+              setPendingAction('scanQR');
+              return;
             }
-            // Wallet bağlıysa QR scanner'ı aç
+            // Wallet is connected, open QR scanner
             setShowQRScanner(true);
           }}
           className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-purple-600 to-blue-600"
         >
-          <QrCode className="w-6 h-6 mb-2" />          <div className="font-semibold">Scan QR Code</div>
+          <QrCode className="w-6 h-6 mb-2" />
+          <div className="font-semibold">Scan QR Code</div>
           <div className="text-sm opacity-90 font-normal">Earn tokens by shopping</div>
         </Button>
 
@@ -292,8 +319,8 @@ const CustomerDashboard: React.FC = () => {
           className="p-4 h-auto flex-col items-start text-left justify-start"
         >
           <Gift className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Ödülleri Gör</div>
-          <div className="text-sm opacity-90 font-normal">Tokenlarınızı kullanın</div>
+          <div className="font-semibold">View Rewards</div>
+          <div className="text-sm opacity-90 font-normal">Use your tokens</div>
         </Button>
 
         <Button 

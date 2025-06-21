@@ -36,28 +36,26 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   } = useWallet();
 
   const [isInitialized, setIsInitialized] = useState(false);
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  useEffect(() => {
-    // Uygulama başlatıldığında bir kez kontrol et
+  const [showWalletModal, setShowWalletModal] = useState(false);  useEffect(() => {
+    // Check once at application startup
     const initializeWallet = async () => {
       const savedWallet = localStorage.getItem('connectedWallet');
       const walletType = localStorage.getItem('walletType');
-      
-      if (savedWallet && walletType === 'freighter') {
+        if (savedWallet && walletType === 'freighter') {
         try {
-          // Sadece Freighter API'sinin mevcut olduğunu kontrol et
-          // Otomatik yeniden bağlanma yapma
+          // Only check if Freighter API is available
+          // Don't auto-reconnect
           const isAvailable = await freighterService.isFreighterInstalled();
           if (isAvailable) {
             console.log('Previous wallet connection found:', savedWallet);
-            // Bağlantı bilgilerini restore et ama yeniden bağlanma
+            // Restore connection info but don't reconnect
           } else {
-            // Freighter mevcut değilse bağlantı bilgilerini temizle
+            // Clear connection info if Freighter is not available
             localStorage.removeItem('connectedWallet');
             localStorage.removeItem('walletType');
           }
         } catch {
-          // Hata durumunda bağlantı bilgilerini temizle
+          // Clear connection info on error
           localStorage.removeItem('connectedWallet');
           localStorage.removeItem('walletType');
         }
