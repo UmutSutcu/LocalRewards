@@ -206,10 +206,10 @@ const CustomerDashboard: React.FC = () => {
   ];
 
   const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
-    console.log('handleEarnTokens called, current address:', address, 'isConnected:', address ? 'yes' : 'no');
+    console.log('handleEarnTokens called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
     // If wallet is already connected, proceed immediately
-    if (address) {
+    if (walletAddress) {
       console.log('Wallet already connected, proceeding with token earning');
       try {
         console.log('Earning tokens from:', businessId);
@@ -238,12 +238,11 @@ const CustomerDashboard: React.FC = () => {
     } catch (error) {
       console.error('Token earning failed:', error);
     }
-  };
-  const handleRedeemReward = async (rewardId: string) => {
-    console.log('handleRedeemReward called, current address:', address, 'isConnected:', address ? 'yes' : 'no');
+  };  const handleRedeemReward = async (rewardId: string) => {
+    console.log('handleRedeemReward called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
     // If wallet is already connected, proceed immediately
-    if (address) {
+    if (walletAddress) {
       console.log('Wallet already connected, proceeding with reward redemption');
       try {
         console.log('Redeeming reward:', rewardId);
@@ -332,10 +331,10 @@ const CustomerDashboard: React.FC = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">        <Button 
           onClick={async () => {
-            console.log('QR Scanner clicked, current address:', address);
+            console.log('QR Scanner clicked, current walletAddress:', walletAddress);
             
             // If wallet is already connected, open QR scanner immediately
-            if (address) {
+            if (walletAddress) {
               console.log('Wallet already connected, opening QR scanner');
               setShowQRScanner(true);
               return;

@@ -47,15 +47,15 @@ interface Transaction {
   description: string;
 }
 
-const BusinessDashboard: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'customers' | 'analytics'>('overview');
+const BusinessDashboard: React.FC = () => {  const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'customers' | 'analytics'>('overview');
   const [showCreateToken, setShowCreateToken] = useState(false);
   const [showDistributeTokens, setShowDistributeTokens] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<'createToken' | 'distributeTokens' | null>(null);
+  const [pendingActionData, setPendingActionData] = useState<string | null>(null);
   const { requireWalletWithModal, address } = useWalletRequired();
 
-  // Auto-update wallet address and handle pending actions - CustomerDashboard style
+  // Auto-update wallet address and handle pending actions
   useEffect(() => {
     console.log('useEffect triggered - address:', address, 'pendingAction:', pendingAction);
     
@@ -65,7 +65,7 @@ const BusinessDashboard: React.FC = () => {
       
       // Execute pending action if any
       if (pendingAction) {
-        console.log('Executing pending action:', pendingAction);
+        console.log('Executing pending action:', pendingAction, 'with data:', pendingActionData);
         
         switch (pendingAction) {
           case 'createToken':
@@ -80,9 +80,10 @@ const BusinessDashboard: React.FC = () => {
         // Clear pending actions
         console.log('Clearing pending actions');
         setPendingAction(null);
+        setPendingActionData(null);
       }
     }
-  }, [address, pendingAction]);
+  }, [address, pendingAction, pendingActionData]);
 
   // Mock data
   const businessStats: BusinessStats = {
@@ -125,40 +126,52 @@ const BusinessDashboard: React.FC = () => {
       rate: 1,
       description: 'Coffee shop reward tokens'
     }
-  ];
-
-  const handleCreateToken = async () => {
-    console.log('handleCreateToken called, current address:', address);
+  ];  const handleCreateToken = async () => {
+    console.log('handleCreateToken called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
     // If wallet is already connected, proceed immediately
-    if (address) {
+    if (walletAddress) {
       console.log('Wallet already connected, opening token creation dialog');
       setShowCreateToken(true);
       return;
     }
     
-    // If no wallet connection, show modal and set pending action
-    console.log('Wallet not connected, showing modal and setting pending action');
-    setPendingAction('createToken');
-    await requireWalletWithModal();
-    // Pending action will be executed by the useEffect when wallet connects
-  };
-
-  const handleDistributeTokens = async () => {
-    console.log('handleDistributeTokens called, current address:', address);
+    // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending action');
+      setPendingAction('createToken');
+      return;
+    }
+    
+    // This shouldn't happen with current logic, but just in case
+    setShowCreateToken(true);
+  };  const handleDistributeTokens = async (tokenIdOrEvent?: string | React.MouseEvent) => {
+    const tokenId = typeof tokenIdOrEvent === 'string' ? tokenIdOrEvent : undefined;
+    console.log('handleDistributeTokens called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
     // If wallet is already connected, proceed immediately
-    if (address) {
+    if (walletAddress) {
       console.log('Wallet already connected, opening token distribution dialog');
       setShowDistributeTokens(true);
       return;
     }
     
-    // If no wallet connection, show modal and set pending action
-    console.log('Wallet not connected, showing modal and setting pending action');
-    setPendingAction('distributeTokens');
-    await requireWalletWithModal();
-    // Pending action will be executed by the useEffect when wallet connects
+    // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
+    const isWalletConnected = await requireWalletWithModal();
+    if (!isWalletConnected) {
+      // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending action');
+      setPendingAction('distributeTokens');
+      setPendingActionData(tokenId || null);
+      return;
+    }
+    
+    // This shouldn't happen with current logic, but just in case
+    setShowDistributeTokens(true);
   };
 
   const renderOverview = () => (
@@ -365,10 +378,8 @@ const BusinessDashboard: React.FC = () => {
                 <p className="text-sm text-gray-500">Earning Rate</p>
                 <p className="font-semibold">{token.rate}x per $1</p>
               </div>
-            </div>
-
-            <div className="mt-4 flex space-x-3">
-              <Button onClick={handleDistributeTokens} className="flex-1">
+            </div>            <div className="mt-4 flex space-x-3">
+              <Button onClick={() => handleDistributeTokens(token.id)} className="flex-1">
                 Distribute Tokens
               </Button>
               <Button variant="outline" className="flex-1">
