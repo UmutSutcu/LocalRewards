@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import jobService from '../../services/jobService';
+import freelanceService from '../../services/freelanceService';
 import escrowService, { EscrowData } from '../../services/escrowService';
 import Button from '../Shared/Button';
 import Card from '../Shared/Card';
@@ -31,6 +32,7 @@ export default function EmployerDashboard() {
   const [jobApplications, setJobApplications] = useState<any[]>([]);  const [allApplications, setAllApplications] = useState<any[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
   const [escrowData, setEscrowData] = useState<{ [jobId: string]: EscrowData }>({});
+  const [freelancerReputations, setFreelancerReputations] = useState<{ [address: string]: { averageRating: number, totalJobs: number, recentRating: number } }>({});
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedApplicationForRating, setSelectedApplicationForRating] = useState<any | null>(null);
   const [selectedRating, setSelectedRating] = useState(5);
@@ -130,7 +132,6 @@ export default function EmployerDashboard() {
       setIsCreatingJob(false);
     }
   };
-
   // Load job applications for a specific job
   const loadJobApplications = async (jobId: string) => {
     try {
@@ -138,6 +139,10 @@ export default function EmployerDashboard() {
       const response = await jobService.getJobApplications(jobId);
       if (response.success && response.data) {
         setJobApplications(response.data);
+        
+        // Load reputation data for all freelancers in applications
+        const freelancerAddresses = response.data.map((app: any) => app.freelancerAddress);
+        await loadFreelancerReputations(freelancerAddresses);
       } else {
         console.error('Failed to load applications:', response.error);
         setJobApplications([]);
@@ -147,6 +152,53 @@ export default function EmployerDashboard() {
       setJobApplications([]);
     } finally {
       setIsLoadingApplications(false);
+    }
+  };
+
+  // Load reputation data for freelancers
+  const loadFreelancerReputations = async (freelancerAddresses: string[]) => {
+    try {
+      const reputationMap: { [address: string]: { averageRating: number, totalJobs: number, recentRating: number } } = {};
+      
+      for (const address of freelancerAddresses) {
+        try {
+          const tokens = await freelanceService.getReputationTokens(address);
+          
+          if (tokens.length > 0) {
+            const totalRating = tokens.reduce((sum, token) => sum + token.rating, 0);
+            const averageRating = totalRating / tokens.length;
+            
+            // Recent rating (last 3 tokens)
+            const recentTokens = tokens.slice(-3);
+            const recentRating = recentTokens.length > 0 
+              ? recentTokens.reduce((sum, token) => sum + token.rating, 0) / recentTokens.length 
+              : 0;
+            
+            reputationMap[address] = {
+              averageRating: Math.round(averageRating * 10) / 10,
+              totalJobs: tokens.length,
+              recentRating: Math.round(recentRating * 10) / 10
+            };
+          } else {
+            reputationMap[address] = {
+              averageRating: 0,
+              totalJobs: 0,
+              recentRating: 0
+            };
+          }
+        } catch (error) {
+          console.error(`Error loading reputation for ${address}:`, error);
+          reputationMap[address] = {
+            averageRating: 0,
+            totalJobs: 0,
+            recentRating: 0
+          };
+        }
+      }
+      
+      setFreelancerReputations(reputationMap);
+    } catch (error) {
+      console.error('Error loading freelancer reputations:', error);
     }
   };
 
@@ -698,13 +750,18 @@ export default function EmployerDashboard() {
                       </Button>
                     </div>
                   </div>
-                )}
-
-                {/* Applications Section */}
+                )}                {/* Applications Section */}
                 <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">
-                    Applications ({jobApplications.length})
-                  </h4>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium text-gray-900">
+                      Applications ({jobApplications.length})
+                    </h4>
+                    {jobApplications.length > 1 && (
+                      <span className="text-sm text-gray-500">
+                        Sorted by reputation and application date
+                      </span>
+                    )}
+                  </div>
                   
                   {isLoadingApplications ? (
                     <div className="text-center py-8">
@@ -714,17 +771,50 @@ export default function EmployerDashboard() {
                   ) : jobApplications.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-gray-600">No applications yet.</p>
-                    </div>
-                  ) : (
+                    </div>                  ) : (
                     <div className="space-y-4">
-                      {jobApplications.map((application) => (
+                      {jobApplications
+                        .sort((a, b) => {
+                          // Sort by reputation (highest first), then by application date
+                          const aReputation = freelancerReputations[a.freelancerAddress]?.averageRating || 0;
+                          const bReputation = freelancerReputations[b.freelancerAddress]?.averageRating || 0;
+                          
+                          if (aReputation !== bReputation) {
+                            return bReputation - aReputation; // Higher reputation first
+                          }
+                          
+                          // If same reputation, sort by application date (newer first)
+                          return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime();
+                        })
+                        .map((application) => (
                         <div key={application.id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-2">
+                            <div className="flex-1">                              <div className="flex items-center space-x-3 mb-2">
                                 <h5 className="font-medium text-gray-900">
                                   {application.freelancerAddress.substring(0, 8)}...
-                                </h5>                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                </h5>
+                                
+                                {/* Freelancer Reputation */}
+                                {freelancerReputations[application.freelancerAddress] && (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex items-center space-x-1">
+                                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {freelancerReputations[application.freelancerAddress].averageRating}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                      ({freelancerReputations[application.freelancerAddress].totalJobs} jobs)
+                                    </span>
+                                    {freelancerReputations[application.freelancerAddress].totalJobs > 0 && (
+                                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                        {freelancerReputations[application.freelancerAddress].totalJobs >= 5 ? 'Experienced' : 'New'}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   application.status === 'pending' ? 'text-yellow-600 bg-yellow-100' :
                                   application.status === 'accepted' ? 'text-green-600 bg-green-100' :
                                   application.status === 'completed' ? 'text-blue-600 bg-blue-100' :
@@ -735,6 +825,46 @@ export default function EmployerDashboard() {
                                 </span>
                               </div>
                               <p className="text-gray-600 mb-2">{application.proposal}</p>
+                                {/* Detailed Reputation Info */}
+                              {freelancerReputations[application.freelancerAddress] && freelancerReputations[application.freelancerAddress].totalJobs > 0 ? (
+                                <div className="bg-gray-50 p-3 rounded-md mb-2">
+                                  <h6 className="font-medium text-gray-900 mb-2">Freelancer Reputation</h6>
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                      <div className="flex items-center space-x-1 mb-1">
+                                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                        <span className="font-medium">Overall Rating:</span>
+                                        <span>{freelancerReputations[application.freelancerAddress].averageRating}/5</span>
+                                      </div>
+                                      <div className="text-gray-600">
+                                        Based on {freelancerReputations[application.freelancerAddress].totalJobs} completed jobs
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center space-x-1 mb-1">
+                                        <Clock className="w-4 h-4 text-blue-500" />
+                                        <span className="font-medium">Recent Performance:</span>
+                                        <span>{freelancerReputations[application.freelancerAddress].recentRating}/5</span>
+                                      </div>
+                                      <div className="text-gray-600">
+                                        Last 3 jobs average
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : freelancerReputations[application.freelancerAddress]?.totalJobs === 0 && (
+                                <div className="bg-amber-50 p-3 rounded-md mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="text-amber-600">⚠️</div>
+                                    <div>
+                                      <h6 className="font-medium text-amber-900">New Freelancer</h6>
+                                      <p className="text-sm text-amber-700">
+                                        This freelancer hasn't completed any jobs yet. Consider starting with a smaller project to evaluate their skills.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                               
                               {/* Show completion details if completed */}
                               {application.status === 'completed' && application.completionData && (
@@ -763,23 +893,54 @@ export default function EmployerDashboard() {
                             </div>
                             
                             {/* Action buttons */}
-                            <div className="flex space-x-2 ml-4">
-                              {selectedJob.status === 'open' && application.status === 'pending' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleAcceptApplication(application.id, application.freelancerAddress)}
-                                  >
-                                    Accept
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleRejectApplication(application.id)}
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
+                            <div className="flex space-x-2 ml-4">                              {selectedJob.status === 'open' && application.status === 'pending' && (
+                                <div className="flex flex-col space-y-2">
+                                  <div className="flex space-x-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        const reputation = freelancerReputations[application.freelancerAddress];
+                                        if (reputation && reputation.totalJobs === 0) {
+                                          const confirmMessage = "This freelancer is new with no completed jobs yet. Are you sure you want to accept?";
+                                          if (!confirm(confirmMessage)) return;
+                                        } else if (reputation && reputation.averageRating < 3.5) {
+                                          const confirmMessage = `This freelancer has a low rating (${reputation.averageRating}/5). Are you sure you want to accept?`;
+                                          if (!confirm(confirmMessage)) return;
+                                        }
+                                        handleAcceptApplication(application.id, application.freelancerAddress);
+                                      }}
+                                      className={
+                                        freelancerReputations[application.freelancerAddress]?.averageRating < 3.5 
+                                          ? 'bg-yellow-600 hover:bg-yellow-700' 
+                                          : ''
+                                      }
+                                    >
+                                      Accept
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRejectApplication(application.id)}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* Reputation-based recommendations */}
+                                  {freelancerReputations[application.freelancerAddress] && (
+                                    <div className="text-xs">
+                                      {freelancerReputations[application.freelancerAddress].totalJobs === 0 ? (
+                                        <span className="text-amber-600">⚠️ New freelancer - Consider starting with a smaller project</span>
+                                      ) : freelancerReputations[application.freelancerAddress].averageRating >= 4.5 ? (
+                                        <span className="text-green-600">✅ Highly rated freelancer - Great choice!</span>
+                                      ) : freelancerReputations[application.freelancerAddress].averageRating >= 3.5 ? (
+                                        <span className="text-blue-600">👍 Good reputation - Reliable choice</span>
+                                      ) : (
+                                        <span className="text-red-600">⚠️ Below average rating - Proceed with caution</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                                 {application.status === 'completed' && (
                                 <div className="flex flex-col space-y-2">
