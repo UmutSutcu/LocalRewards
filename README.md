@@ -56,7 +56,7 @@ Stellar Local Rewards revolutionizes customer loyalty programs by leveraging blo
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/stellar-local-rewards.git
+   git clone https://github.com/UmutSutcu/LocalRewards.git
    cd stellar-local-rewards
    ```
 
@@ -249,8 +249,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙋‍♀️ Support
 
 - **Documentation**: [docs/](./docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/stellar-local-rewards/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/stellar-local-rewards/discussions)
+- **Issues**: [GitHub Issues](https://github.com/UmutSutcu/LocalRewards/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/UmutSutcu/LocalRewards/discussions)
 
 ## 🌟 Acknowledgments
 

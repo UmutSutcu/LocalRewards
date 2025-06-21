@@ -60,7 +60,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
     );
     
     if (!confirmFund) return;    try {
-      const result = await StellarService.fundTestnetAccount(publicKey);
+      const result = await StellarService.fundTestAccount(publicKey);
       if (result.success) {
         alert('✅ Hesap başarıyla fonlandı!');
         await loadBalance();

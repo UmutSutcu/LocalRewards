@@ -127,7 +127,6 @@ class StellarService {
       throw error;
     }
   }
-
   /**
    * Get account balance for a specific asset
    */
@@ -135,7 +134,8 @@ class StellarService {
     try {
       const account = await this.getAccount(publicKey);
       
-      if (!assetCode) {        // Return XLM balance
+      if (!assetCode) {
+        // Return XLM balance
         const xlmBalance = account.balances.find((balance: any) => balance.asset_type === 'native');
         return xlmBalance?.balance || '0';
       }
@@ -259,7 +259,6 @@ class StellarService {
       };
     }
   }
-
   /**
    * Monitor account for new transactions
    */
@@ -268,7 +267,8 @@ class StellarService {
       .transactions()
       .forAccount(publicKey)
       .cursor('now')
-      .stream({        onmessage: onTransaction,
+      .stream({
+        onmessage: onTransaction,
         onerror: (error: any) => console.error('Stream error:', error),
       });
   }
