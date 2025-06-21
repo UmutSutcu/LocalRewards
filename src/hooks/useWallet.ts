@@ -12,9 +12,22 @@ export const useWallet = () => {
     isLoading: false,
     error: null,
   });
-
   const [isPasskeySupported, setIsPasskeySupported] = useState(false);
-  const [isFreighterInstalled, setIsFreighterInstalled] = useState(false);  useEffect(() => {
+  const [isFreighterInstalled, setIsFreighterInstalled] = useState(false);
+
+  const loadBalance = useCallback(async (address: string) => {
+    try {
+      const balance = await stellarService.getBalance(address);
+      setWalletState(prev => ({
+        ...prev,
+        balance,
+      }));
+    } catch (error) {
+      console.error('Failed to load balance:', error);
+    }
+  }, []);
+
+  useEffect(() => {
     setIsPasskeySupported(passkeyWalletService.isPasskeySupported());
     
     // Check Freighter installation (async)
@@ -40,27 +53,13 @@ export const useWallet = () => {
         setWalletState(prev => ({
           ...prev,
           isConnected: true,
-          address: savedWallet,
-        }));
+          address: savedWallet,        }));
         
         // Load balance
         loadBalance(savedWallet);
       }
     };
-    checkFreighter();
-  }, []);
-
-  const loadBalance = useCallback(async (address: string) => {
-    try {
-      const balance = await stellarService.getBalance(address);
-      setWalletState(prev => ({
-        ...prev,
-        balance,
-      }));
-    } catch (error) {
-      console.error('Failed to load balance:', error);
-    }
-  }, []);
+    checkFreighter();  }, [loadBalance]);
 
   const connectWithPasskey = useCallback(async (username?: string) => {
     setWalletState(prev => ({ ...prev, isLoading: true, error: null }));

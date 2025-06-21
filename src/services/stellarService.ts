@@ -9,6 +9,14 @@ const {
   Memo
 } = StellarSdk;
 
+// Types for Stellar API responses
+interface StellarBalance {
+  balance: string;
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+}
+
 // Stellar Horizon server (Testnet)
 const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
 
@@ -40,7 +48,7 @@ class StellarService {
   static async getAccountBalance(publicKey: string): Promise<string> {
     try {
       const account = await server.loadAccount(publicKey);
-      const balance = account.balances.find((balance: any) => balance.asset_type === 'native');
+      const balance = account.balances.find((balance: StellarBalance) => balance.asset_type === 'native');
       return balance ? balance.balance : '0';
     } catch (error) {
       console.error('Hesap bakiyesi alınamadı:', error);
@@ -54,8 +62,7 @@ class StellarService {
   static async checkAccountExists(publicKey: string): Promise<boolean> {
     try {
       await server.loadAccount(publicKey);
-      return true;
-    } catch (error) {
+      return true;    } catch {
       return false;
     }
   }
@@ -136,12 +143,12 @@ class StellarService {
       
       if (!assetCode) {
         // Return XLM balance
-        const xlmBalance = account.balances.find((balance: any) => balance.asset_type === 'native');
+        const xlmBalance = account.balances.find((balance: StellarBalance) => balance.asset_type === 'native');
         return xlmBalance?.balance || '0';
       }
       
       // Return custom asset balance
-      const assetBalance = account.balances.find((balance: any) => 
+      const assetBalance = account.balances.find((balance: StellarBalance) => 
         balance.asset_type !== 'native' &&
         balance.asset_code === assetCode &&
         balance.asset_issuer === assetIssuer
@@ -262,14 +269,14 @@ class StellarService {
   /**
    * Monitor account for new transactions
    */
-  streamTransactions(publicKey: string, onTransaction: (transaction: any) => void) {
+  streamTransactions(publicKey: string, onTransaction: (transaction: unknown) => void) {
     return this.server
       .transactions()
       .forAccount(publicKey)
       .cursor('now')
       .stream({
         onmessage: onTransaction,
-        onerror: (error: any) => console.error('Stream error:', error),
+        onerror: (error: unknown) => console.error('Stream error:', error),
       });
   }
 }

@@ -7,11 +7,38 @@ import {
   LoyaltyToken 
 } from '@/types';
 
+// Local types for API responses
+interface User {
+  id: string;
+  walletAddress: string;
+  userType: 'business' | 'customer';
+  profile: BusinessProfile | CustomerProfile;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AuthResponse {
+  user: User;
+  token: string;
+}
+
+interface Donation {
+  id: string;
+  projectId: string;
+  amount: string;
+  tokenSymbol: string;
+  transactionHash: string;
+  donorAddress: string;
+  isAnonymous: boolean;
+  timestamp: string;
+}
+
 class BackendService {
   private api: AxiosInstance;
   private baseURL: string;
   constructor() {
-    this.baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
+    this.baseURL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:3001/api';
     this.api = axios.create({
       baseURL: this.baseURL,
       timeout: 10000,
@@ -44,12 +71,12 @@ class BackendService {
     walletAddress: string;
     userType: 'business' | 'customer';
     profile: Partial<BusinessProfile | CustomerProfile>;
-  }): Promise<{ user: any; token: string }> {
+  }): Promise<AuthResponse> {
     const response = await this.api.post('/auth/register', userData);
     return response.data;
   }
 
-  async login(walletAddress: string): Promise<{ user: any; token: string }> {
+  async login(walletAddress: string): Promise<AuthResponse> {
     const response = await this.api.post('/auth/login', { walletAddress });
     return response.data;
   }
@@ -109,7 +136,7 @@ class BackendService {
     tokenSymbol: string;
     fromAddress: string;
     toAddress: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   }): Promise<Transaction> {
     const response = await this.api.post('/transactions', transactionData);
     return response.data;
@@ -158,12 +185,12 @@ class BackendService {
     transactionHash: string;
     donorAddress: string;
     isAnonymous: boolean;
-  }): Promise<any> {
+  }): Promise<Donation> {
     const response = await this.api.post('/donations', donationData);
     return response.data;
   }
 
-  async getDonationsByProject(projectId: string): Promise<any[]> {
+  async getDonationsByProject(projectId: string): Promise<Donation[]> {
     const response = await this.api.get(`/projects/${projectId}/donations`);
     return response.data;
   }

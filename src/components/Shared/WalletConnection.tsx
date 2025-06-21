@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import freighterApi from "@stellar/freighter-api";
 import stellarService, { StellarService } from "../../services/stellarService";
 
@@ -28,15 +28,8 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
 
   const truncateAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-6)}`;
-  };
-
-  // Bakiye yükleme
-  useEffect(() => {
-    if (publicKey) {
-      loadBalance();
-    }
-  }, [publicKey]);
-  const loadBalance = async () => {
+  };  // Bakiye yükleme
+  const loadBalance = useCallback(async () => {
     if (!publicKey) return;
     setLoadingBalance(true);
     try {
@@ -48,7 +41,13 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
     } finally {
       setLoadingBalance(false);
     }
-  };
+  }, [publicKey]);
+
+  useEffect(() => {
+    if (publicKey) {
+      loadBalance();
+    }
+  }, [publicKey, loadBalance]);
 
   const handleFundAccount = async () => {
     if (!publicKey) return;
@@ -64,8 +63,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
         await loadBalance();
       } else {
         alert('❌ Failed to fund account');
-      }
-    } catch (error) {
+      }    } catch {
       alert('❌ Failed to fund account');
     }
   };

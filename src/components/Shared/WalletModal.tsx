@@ -70,8 +70,7 @@ const WalletModal: React.FC<WalletModalProps> = ({
       const isNowInstalled = await freighterService.isFreighterInstalled();
       if (isNowInstalled) {
         onClose();
-      }
-    } catch (error) {
+      }    } catch {
       setError('Wallet detection failed.');
     } finally {
       setIsCheckingInstallation(false);

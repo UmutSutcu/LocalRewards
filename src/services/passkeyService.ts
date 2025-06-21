@@ -146,7 +146,7 @@ class PasskeyWalletService {
   /**
    * Sign transaction with passkey
    */
-  async signTransaction(_transaction: any): Promise<string> {
+  async signTransaction(_transaction: unknown): Promise<string> {
     if (!this.currentWallet) {
       throw new Error('No wallet connected');
     }

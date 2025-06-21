@@ -46,8 +46,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       if (savedWallet && walletType === 'freighter') {
         try {
           // Try to reconnect with Freighter silently
-          await connectWithFreighter();
-        } catch (error) {
+          await connectWithFreighter();        } catch {
           console.log('Failed to reconnect with Freighter, clearing saved connection');
           // Clear invalid saved connection
           localStorage.removeItem('connectedWallet');
@@ -61,17 +60,12 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     // Run async but don't block UI
     checkPreviousConnection();
   }, [connectWithFreighter]);
-
   const connectWallet = async () => {
     if (!isFreighterInstalled) {
       throw new Error('Freighter wallet is not installed. Please install it first.');
     }
 
-    try {
-      await connectWithFreighter();
-    } catch (error) {
-      throw error;
-    }
+    await connectWithFreighter();
   };
 
   const disconnect = () => {
@@ -92,8 +86,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
   return (
     <WalletContext.Provider value={contextValue}>
-      {children}
-    </WalletContext.Provider>
+      {children}    </WalletContext.Provider>
   );
 };
 

@@ -503,7 +503,7 @@ export const DonationDashboard: React.FC = () => {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setSelectedTab(tab.id as any)}
+                onClick={() => setSelectedTab(tab.id as 'campaigns' | 'my-donations' | 'analytics')}
                 className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                   selectedTab === tab.id
                     ? 'border-primary-500 text-primary-600'

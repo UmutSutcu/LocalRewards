@@ -31,8 +31,7 @@ export const useWalletRequired = () => {
     // Try auto-connect
     try {
       await connectWallet();
-      return await freighterService.requireWalletConnection();
-    } catch (error) {
+      return await freighterService.requireWalletConnection();    } catch {
       // If auto-connect fails, show modal
       setShowWalletModal(true);
       throw new Error('WALLET_REQUIRED');
