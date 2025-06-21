@@ -51,12 +51,18 @@ export const DonationDashboard: React.FC = () => {
   const [selectedCampaign, setSelectedCampaign] = useState<DonationCampaign | null>(null);
   const [donationAmount, setDonationAmount] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [isDonating, setIsDonating] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isDonating, setIsDonating] = useState(false);  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedTab, setSelectedTab] = useState<'campaigns' | 'my-donations' | 'analytics'>('campaigns');
-  const { requireWalletWithModal } = useWalletRequired();
+  const { requireWalletWithModal, address } = useWalletRequired();
+
+  // Wallet adresini otomatik güncelle
+  useEffect(() => {
+    if (address) {
+      setWalletAddress(address);
+    }
+  }, [address]);
 
   // Mock data
   useEffect(() => {
@@ -138,13 +144,15 @@ export const DonationDashboard: React.FC = () => {
     }, 1000);
   }, []);
 
-  const categories = ['all', 'Education', 'Animal Rights', 'Social Aid', 'Emergency', 'Health'];
-  const handleDonate = async () => {
+  const categories = ['all', 'Education', 'Animal Rights', 'Social Aid', 'Emergency', 'Health'];  const handleDonate = async () => {
     if (!selectedCampaign || !donationAmount) return;
 
-    const hasWallet = await requireWalletWithModal();
-    if (!hasWallet) {
-      return;
+    // Wallet bağlı değilse modal göster
+    if (!address) {
+      const hasWallet = await requireWalletWithModal();
+      if (!hasWallet) {
+        return;
+      }
     }
 
     setIsDonating(true);
@@ -344,10 +352,15 @@ export const DonationDashboard: React.FC = () => {
                 </div>
               </div>              <Button 
                 onClick={async () => {
-                  const hasWallet = await requireWalletWithModal();
-                  if (hasWallet) {
-                    setSelectedCampaign(campaign);
+                  // Wallet bağlı değilse modal göster
+                  if (!address) {
+                    const hasWallet = await requireWalletWithModal();
+                    if (!hasWallet) {
+                      return;
+                    }
                   }
+                  // Wallet bağlıysa donation modal'ını aç
+                  setSelectedCampaign(campaign);
                 }}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                 size="lg"

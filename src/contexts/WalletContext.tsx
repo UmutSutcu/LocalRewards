@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useWallet } from '@/hooks/useWallet';
+import freighterService from '@/services/freighterService';
 
 interface WalletContextType {
   isConnected: boolean;
@@ -36,19 +37,27 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-
   useEffect(() => {
-    // Initialize wallet check - non-blocking
-    const checkPreviousConnection = async () => {
+    // Uygulama başlatıldığında bir kez kontrol et
+    const initializeWallet = async () => {
       const savedWallet = localStorage.getItem('connectedWallet');
       const walletType = localStorage.getItem('walletType');
       
       if (savedWallet && walletType === 'freighter') {
         try {
-          // Try to reconnect with Freighter silently
-          await connectWithFreighter();        } catch {
-          console.log('Failed to reconnect with Freighter, clearing saved connection');
-          // Clear invalid saved connection
+          // Sadece Freighter API'sinin mevcut olduğunu kontrol et
+          // Otomatik yeniden bağlanma yapma
+          const isAvailable = await freighterService.isFreighterInstalled();
+          if (isAvailable) {
+            console.log('Previous wallet connection found:', savedWallet);
+            // Bağlantı bilgilerini restore et ama yeniden bağlanma
+          } else {
+            // Freighter mevcut değilse bağlantı bilgilerini temizle
+            localStorage.removeItem('connectedWallet');
+            localStorage.removeItem('walletType');
+          }
+        } catch {
+          // Hata durumunda bağlantı bilgilerini temizle
           localStorage.removeItem('connectedWallet');
           localStorage.removeItem('walletType');
         }
@@ -57,9 +66,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       setIsInitialized(true);
     };
 
-    // Run async but don't block UI
-    checkPreviousConnection();
-  }, [connectWithFreighter]);
+    initializeWallet();
+  }, []);
   const connectWallet = async () => {
     if (!isFreighterInstalled) {
       throw new Error('Freighter wallet is not installed. Please install it first.');

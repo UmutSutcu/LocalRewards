@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Coins, 
   Users, 
@@ -52,7 +52,14 @@ const BusinessDashboard: React.FC = () => {
   const [showCreateToken, setShowCreateToken] = useState(false);
   const [showDistributeTokens, setShowDistributeTokens] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const { requireWalletWithModal } = useWalletRequired();
+  const { requireWalletWithModal, address } = useWalletRequired();
+
+  // Wallet adresini otomatik güncelle
+  useEffect(() => {
+    if (address) {
+      setWalletAddress(address);
+    }
+  }, [address]);
 
   // Mock data
   const businessStats: BusinessStats = {
@@ -95,25 +102,33 @@ const BusinessDashboard: React.FC = () => {
       rate: 1,
       description: 'Coffee shop reward tokens'
     }
-  ];
-  const handleCreateToken = async () => {
-    const hasWallet = await requireWalletWithModal();
-    if (!hasWallet) {
-      return;
+  ];  const handleCreateToken = async () => {
+    // Wallet bağlı değilse modal göster
+    if (!address) {
+      const hasWallet = await requireWalletWithModal();
+      if (!hasWallet) {
+        return;
+      }
     }
 
+    // Wallet bağlıysa direkt işlemi başlat
     try {
       setShowCreateToken(true);
     } catch (error) {
       console.error('Token creation failed:', error);
     }
   };
+
   const handleDistributeTokens = async () => {
-    const hasWallet = await requireWalletWithModal();
-    if (!hasWallet) {
-      return;
+    // Wallet bağlı değilse modal göster  
+    if (!address) {
+      const hasWallet = await requireWalletWithModal();
+      if (!hasWallet) {
+        return;
+      }
     }
 
+    // Wallet bağlıysa direkt işlemi başlat
     try {
       setShowDistributeTokens(true);
     } catch (error) {

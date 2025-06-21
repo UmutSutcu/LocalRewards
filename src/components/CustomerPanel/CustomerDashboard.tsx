@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Coins, 
   Gift, 
@@ -58,7 +58,14 @@ const CustomerDashboard: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const { requireWalletWithModal } = useWalletRequired();
+  const { requireWalletWithModal, address } = useWalletRequired();
+
+  // Wallet adresini otomatik güncelle
+  useEffect(() => {
+    if (address) {
+      setWalletAddress(address);
+    }
+  }, [address]);
 
   // Mock data - gerçek uygulamada API'den gelecek
   const tokenBalances: TokenBalance[] = [
@@ -168,11 +175,13 @@ const CustomerDashboard: React.FC = () => {
     },
   ];
 
-  const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];
-  const handleEarnTokens = async (businessId: string) => {
-    const hasWallet = await requireWalletWithModal();
-    if (!hasWallet) {
-      return;
+  const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
+    // Wallet bağlı değilse modal göster
+    if (!address) {
+      const hasWallet = await requireWalletWithModal();
+      if (!hasWallet) {
+        return;
+      }
     }
 
     try {
@@ -182,10 +191,14 @@ const CustomerDashboard: React.FC = () => {
       console.error('Token earning failed:', error);
     }
   };
+
   const handleRedeemReward = async (rewardId: string) => {
-    const hasWallet = await requireWalletWithModal();
-    if (!hasWallet) {
-      return;
+    // Wallet bağlı değilse modal göster
+    if (!address) {
+      const hasWallet = await requireWalletWithModal();
+      if (!hasWallet) {
+        return;
+      }
     }
 
     try {
@@ -257,10 +270,15 @@ const CustomerDashboard: React.FC = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">        <Button 
           onClick={async () => {
-            const hasWallet = await requireWalletWithModal();
-            if (hasWallet) {
-              setShowQRScanner(true);
+            // Wallet bağlı değilse modal göster
+            if (!address) {
+              const hasWallet = await requireWalletWithModal();
+              if (!hasWallet) {
+                return;
+              }
             }
+            // Wallet bağlıysa QR scanner'ı aç
+            setShowQRScanner(true);
           }}
           className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-purple-600 to-blue-600"
         >

@@ -4,64 +4,101 @@ import freighterService from '@/services/freighterService';
 export const useWalletRequired = () => {
   const { 
     isConnected, 
+    address,
     connectWallet, 
     isFreighterInstalled, 
     showWalletModal, 
     setShowWalletModal 
   } = useWalletContext();
 
-  const requireWallet = async (options?: {
-    title?: string;
-    description?: string;
-    autoConnect?: boolean;
-  }): Promise<{ publicKey: string; network: string }> => {
-    // If already connected, return wallet details
-    if (isConnected) {
-      return await freighterService.requireWalletConnection();
-    }
-
-    // If auto-connect is disabled or Freighter is not installed, show modal
-    if (!options?.autoConnect || !isFreighterInstalled) {
-      setShowWalletModal(true);
-      
-      // Return a promise that rejects (user needs to manually connect)
-      throw new Error('WALLET_REQUIRED');
-    }
-
-    // Try auto-connect
-    try {
-      await connectWallet();
-      return await freighterService.requireWalletConnection();    } catch {
-      // If auto-connect fails, show modal
-      setShowWalletModal(true);
-      throw new Error('WALLET_REQUIRED');
-    }
-  };  const requireWalletWithModal = async () => {
-    // Check if connected AND Freighter API is available
-    if (isConnected) {
+  /**
+   * Wallet bağlantısını kontrol eder, bağlı değilse modal gösterir
+   * Bir kez bağlandıktan sonra tekrar bağlanmaya çalışmaz
+   */
+  const requireWalletWithModal = async (): Promise<boolean> => {
+    // Zaten bağlıysa, bağlantıyı doğrula
+    if (isConnected && address) {
       try {
-        // Verify that Freighter API is actually working
-        await freighterService.requireWalletConnection();
-        return true;
+        // Freighter API'sinin çalıştığını doğrula
+        const connection = await freighterService.requireWalletConnection();
+        return connection.publicKey === address;
       } catch (error) {
-        console.error('Freighter API not available:', error);
-        // Reset connection state and show modal
+        console.warn('Wallet connection validation failed:', error);
+        // Bağlantı geçersizse modal göster
         setShowWalletModal(true);
         return false;
       }
     }
     
-    // Not connected, show modal
-    setShowWalletModal(true);
+    // Bağlı değilse modal göster
+    if (!isConnected) {
+      setShowWalletModal(true);
+      return false;
+    }
+    
     return false;
   };
 
+  /**
+   * Wallet bağlantısını gerektirir, otomatik bağlanma seçeneği ile
+   * @deprecated Bu fonksiyon yerine requireWalletWithModal kullanın
+   */
+  const requireWallet = async (options?: {
+    title?: string;
+    description?: string;
+    autoConnect?: boolean;
+  }): Promise<{ publicKey: string; network: string }> => {
+    // Zaten bağlıysa wallet bilgilerini döndür
+    if (isConnected && address) {
+      return await freighterService.requireWalletConnection();
+    }
+
+    // Otomatik bağlanma kapalıysa veya Freighter yüklü değilse modal göster
+    if (!options?.autoConnect || !isFreighterInstalled) {
+      setShowWalletModal(true);
+      throw new Error('WALLET_REQUIRED');
+    }
+
+    // Otomatik bağlanmaya çalış (sadece bir kez)
+    try {
+      await connectWallet();
+      return await freighterService.requireWalletConnection();
+    } catch {
+      setShowWalletModal(true);
+      throw new Error('WALLET_REQUIRED');
+    }
+  };
+
+  /**
+   * Mevcut bağlı wallet adresini döndürür
+   */
+  const getConnectedAddress = (): string | null => {
+    return isConnected ? address : null;
+  };
+
+  /**
+   * Wallet bağlantı durumunu kontrol eder
+   */
+  const isWalletReady = (): boolean => {
+    return isConnected && !!address && isFreighterInstalled;
+  };
+
   return {
+    // Durum bilgileri
     isConnected,
+    address,
     isFreighterInstalled,
-    requireWallet,
+    isWalletReady: isWalletReady(),
+    
+    // Ana fonksiyonlar
     requireWalletWithModal,
+    getConnectedAddress,
+    
+    // Modal kontrolü
     showWalletModal,
     setShowWalletModal,
+    
+    // Geriye uyumluluk için (deprecated)
+    requireWallet,
   };
 };

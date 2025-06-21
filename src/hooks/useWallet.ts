@@ -26,40 +26,45 @@ export const useWallet = () => {
       console.error('Failed to load balance:', error);
     }
   }, []);
-
   useEffect(() => {
     setIsPasskeySupported(passkeyWalletService.isPasskeySupported());
     
-    // Check Freighter installation (async)
+    // Sadece Freighter kurulu olup olmadığını kontrol et
     const checkFreighter = async () => {
       const installed = await freighterService.isFreighterInstalled();
       setIsFreighterInstalled(installed);
       
-      // Check if there's a previously connected wallet
+      // Kaydedilmiş wallet varsa sadece state'i restore et
+      // Otomatik yeniden bağlanma yapma
       const savedWallet = localStorage.getItem('connectedWallet');
       const walletType = localStorage.getItem('walletType');
       
-      if (savedWallet && walletType === 'freighter' && installed) {
-        setWalletState(prev => ({
-          ...prev,
-          isConnected: true,
-          address: savedWallet,
-        }));
-        
-        // Load balance
-        loadBalance(savedWallet);
-      } else if (savedWallet && walletType !== 'freighter') {
-        // For other wallet types (passkey)
-        setWalletState(prev => ({
-          ...prev,
-          isConnected: true,
-          address: savedWallet,        }));
-        
-        // Load balance
-        loadBalance(savedWallet);
+      if (savedWallet && installed) {
+        if (walletType === 'freighter') {
+          setWalletState(prev => ({
+            ...prev,
+            isConnected: true,
+            address: savedWallet,
+          }));
+          
+          // Bakiye yükle
+          loadBalance(savedWallet);
+        } else if (walletType === 'passkey') {
+          // Passkey bağlantıları için
+          setWalletState(prev => ({
+            ...prev,
+            isConnected: true,
+            address: savedWallet,
+          }));
+          
+          // Bakiye yükle
+          loadBalance(savedWallet);
+        }
       }
     };
-    checkFreighter();  }, [loadBalance]);
+    
+    checkFreighter();
+  }, [loadBalance]);
 
   const connectWithPasskey = useCallback(async (username?: string) => {
     setWalletState(prev => ({ ...prev, isLoading: true, error: null }));
