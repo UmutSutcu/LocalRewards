@@ -89,8 +89,11 @@ export interface ReputationToken {
   jobTitle: string;
   employerAddress: string;
   rating: number; // 1-5 stars
-  review?: string;
-  skillTags: string[];
+  comment?: string; // Employer's comment/review
+  review?: string; // Deprecated, use comment instead
+  skillTags?: string[];
+  jobBudget?: number;
+  jobCurrency?: 'XLM' | 'USDC';
   mintedAt: Date;
   isTransferable: false; // Soulbound Token
 }

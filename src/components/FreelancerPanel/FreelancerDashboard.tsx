@@ -295,15 +295,51 @@ export default function FreelancerDashboard() {
       alert('Failed to submit completion. Please try again.');
     }
   };
-
   const filteredJobs = jobs.filter(job =>
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     job.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const appliedJobs = myApplications || [];
-  const totalReputation = reputationTokens.reduce((sum, token) => sum + token.rating, 0);
-  const averageRating = reputationTokens.length > 0 ? totalReputation / reputationTokens.length : 0;
+  
+  // Calculate reputation metrics
+  const calculateReputationMetrics = () => {
+    if (reputationTokens.length === 0) {
+      return {
+        totalReputation: 0,
+        averageRating: 0,
+        totalEarnings: 0,
+        ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        recentRating: 0
+      };
+    }
+
+    const totalReputation = reputationTokens.reduce((sum, token) => sum + token.rating, 0);
+    const averageRating = totalReputation / reputationTokens.length;
+    const totalEarnings = reputationTokens.reduce((sum, token) => sum + (token.jobBudget || 0), 0);
+    
+    // Rating distribution
+    const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reputationTokens.forEach(token => {
+      ratingDistribution[token.rating as keyof typeof ratingDistribution]++;
+    });
+
+    // Recent rating (last 5 tokens)
+    const recentTokens = reputationTokens.slice(-5);
+    const recentRating = recentTokens.length > 0 
+      ? recentTokens.reduce((sum, token) => sum + token.rating, 0) / recentTokens.length 
+      : 0;
+
+    return {
+      totalReputation,
+      averageRating,
+      totalEarnings,
+      ratingDistribution,
+      recentRating
+    };
+  };
+
+  const reputationMetrics = calculateReputationMetrics();
   return (
     <>
       <div className="min-h-screen bg-gray-50 p-4">
@@ -357,7 +393,7 @@ export default function FreelancerDashboard() {
               <Star className="w-8 h-8 text-orange-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Average Rating</p>
-                <p className="text-2xl font-bold text-gray-900">{averageRating.toFixed(1)}</p>
+                <p className="text-2xl font-bold text-gray-900">{reputationMetrics.averageRating.toFixed(1)}</p>
               </div>
             </div>
           </Card>
@@ -587,10 +623,101 @@ export default function FreelancerDashboard() {
               )}
             </Card>
           </div>
-        )}
+        )}        {selectedTab === 'reputation' && (
+          <div className="space-y-6">
+            {/* Reputation Overview */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Reputation Overview</h2>
+              
+              {reputationTokens.length === 0 ? (
+                <div className="text-center py-8">
+                  <Award className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Reputation Tokens</h3>
+                  <p className="text-gray-600">Complete jobs to earn reputation tokens and build your reputation.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Average Rating */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <Star className="w-8 h-8 text-yellow-400 fill-current" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">{reputationMetrics.averageRating.toFixed(1)}</div>
+                    <div className="text-sm text-gray-600">Average Rating</div>
+                    <div className="flex items-center justify-center mt-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-4 h-4 ${
+                            i < Math.round(reputationMetrics.averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
 
-        {selectedTab === 'reputation' && (
-          <div>
+                  {/* Total Tokens */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <Award className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">{reputationTokens.length}</div>
+                    <div className="text-sm text-gray-600">Reputation Tokens</div>
+                  </div>
+
+                  {/* Total Earnings */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <DollarSign className="w-8 h-8 text-green-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">{reputationMetrics.totalEarnings}</div>
+                    <div className="text-sm text-gray-600">Total Earnings</div>
+                  </div>
+
+                  {/* Recent Performance */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <Clock className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">{reputationMetrics.recentRating.toFixed(1)}</div>
+                    <div className="text-sm text-gray-600">Recent Rating (Last 5)</div>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Rating Distribution */}
+            {reputationTokens.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Rating Distribution</h3>
+                <div className="space-y-3">
+                  {[5, 4, 3, 2, 1].map((rating) => {
+                    const count = reputationMetrics.ratingDistribution[rating as keyof typeof reputationMetrics.ratingDistribution];
+                    const percentage = reputationTokens.length > 0 ? (count / reputationTokens.length) * 100 : 0;
+                    
+                    return (
+                      <div key={rating} className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-1 w-16">
+                          <span className="text-sm font-medium">{rating}</span>
+                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        </div>
+                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-sm text-gray-600 w-20">
+                          {count} ({percentage.toFixed(0)}%)
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Reputation Tokens List */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Reputation Tokens (SBT)</h2>
               {isLoadingReputation ? (
@@ -608,10 +735,16 @@ export default function FreelancerDashboard() {
                 <div className="space-y-4">
                   {reputationTokens.map((token) => (
                     <div key={token.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{token.jobTitle}</h3>
-                          <div className="flex items-center space-x-2 mt-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="font-medium text-gray-900">{token.jobTitle}</h3>
+                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                              SBT #{token.tokenId.split('_')[1]}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 mb-2">
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <Star
@@ -622,18 +755,34 @@ export default function FreelancerDashboard() {
                                 />
                               ))}
                             </div>
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm font-medium text-gray-900">
                               {token.rating}/5 stars
                             </span>
+                            {token.jobBudget && (
+                              <span className="text-sm text-gray-500">
+                                • {token.jobBudget} {token.jobCurrency}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-sm text-gray-500 mt-1">
-                            Completed: {token.mintedAt.toLocaleDateString()} • 
-                            Employer: {token.employerAddress.substring(0, 8)}...
+
+                          {/* Employer Comment */}
+                          {token.comment && (
+                            <div className="bg-gray-50 p-3 rounded-md mb-2">
+                              <p className="text-sm text-gray-700 italic">"{token.comment}"</p>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>Completed: {token.mintedAt.toLocaleDateString()}</span>
+                            <span>Employer: {token.employerAddress.substring(0, 8)}...</span>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Award className="w-8 h-8 text-purple-600" />
-                          <span className="text-sm font-medium text-purple-600">SBT</span>
+                        
+                        <div className="flex items-center space-x-2 ml-4">
+                          <div className="text-center">
+                            <Award className="w-8 h-8 text-purple-600 mx-auto" />
+                            <span className="text-xs font-medium text-purple-600">SBT</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -641,7 +790,8 @@ export default function FreelancerDashboard() {
                 </div>
               )}
             </Card>
-          </div>        )}
+          </div>
+        )}
         </div>
       </div>
 

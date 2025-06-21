@@ -4,7 +4,7 @@ import escrowService, { EscrowData } from '../../services/escrowService';
 import Button from '../Shared/Button';
 import Card from '../Shared/Card';
 import WalletConnection from '../Shared/WalletConnection';
-import { Plus, Briefcase, Clock, CheckCircle, DollarSign, Shield } from 'lucide-react';
+import { Plus, Briefcase, Clock, CheckCircle, DollarSign, Shield, Star } from 'lucide-react';
 
 interface Job {
   id: string;
@@ -28,10 +28,13 @@ export default function EmployerDashboard() {
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
-  const [jobApplications, setJobApplications] = useState<any[]>([]);
-  const [allApplications, setAllApplications] = useState<any[]>([]);
+  const [jobApplications, setJobApplications] = useState<any[]>([]);  const [allApplications, setAllApplications] = useState<any[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
   const [escrowData, setEscrowData] = useState<{ [jobId: string]: EscrowData }>({});
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedApplicationForRating, setSelectedApplicationForRating] = useState<any | null>(null);
+  const [selectedRating, setSelectedRating] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
   const [newJob, setNewJob] = useState({
     title: '',
     description: '',
@@ -206,28 +209,38 @@ export default function EmployerDashboard() {
       alert('Failed to complete job. Please try again.');
     }
   };
-
   // Approve job completion and process payment
-  const handleApproveCompletion = async (applicationId: string, rating: number = 5) => {
-    if (!selectedJob) return;
+  const handleApproveCompletion = async (application: any) => {
+    setSelectedApplicationForRating(application);
+    setSelectedRating(5);
+    setRatingComment('');
+    setShowRatingModal(true);
+  };
+
+  // Submit approval with rating
+  const handleSubmitApproval = async () => {
+    if (!selectedJob || !selectedApplicationForRating) return;
     
-    if (!confirm('This will approve the job completion, transfer payment, and mint reputation token. Continue?')) {
+    if (!confirm(`This will approve the job completion with ${selectedRating} stars, transfer payment, and mint reputation token. Continue?`)) {
       return;
     }
     
     try {
       const result = await jobService.approveJobCompletion(
         selectedJob.id,
-        applicationId,
+        selectedApplicationForRating.id,
         walletAddress!,
-        rating
+        selectedRating,
+        ratingComment
       );
       
       if (result.status === 'success') {
-        alert('Job completion approved! Payment transferred and reputation token minted.');
+        alert(`Job completion approved with ${selectedRating} stars! Payment transferred and reputation token minted.`);
         await loadJobs(); // Reload jobs to update status
         await loadJobApplications(selectedJob.id); // Reload applications
+        await loadEscrowData(); // Reload escrow data
         setShowJobDetails(false);
+        setShowRatingModal(false);
       } else {
         alert('Failed to approve completion: ' + result.message);
       }
@@ -768,12 +781,11 @@ export default function EmployerDashboard() {
                                   </Button>
                                 </>
                               )}
-                              
-                              {application.status === 'completed' && (
+                                {application.status === 'completed' && (
                                 <div className="flex flex-col space-y-2">
                                   <Button
                                     size="sm"
-                                    onClick={() => handleApproveCompletion(application.id, 5)}
+                                    onClick={() => handleApproveCompletion(application)}
                                   >
                                     Approve & Pay
                                   </Button>
@@ -793,8 +805,89 @@ export default function EmployerDashboard() {
                     </div>
                   )}
                 </div>
+              </div>            </div>
+          </div>
+        )}
+
+        {/* Rating Modal */}
+        {showRatingModal && selectedApplicationForRating && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Rate Freelancer Performance</h3>
+              
+              <div className="mb-4">
+                <h4 className="font-medium text-gray-900 mb-2">
+                  Freelancer: {selectedApplicationForRating.freelancerAddress.substring(0, 8)}...
+                </h4>
+                <p className="text-sm text-gray-600">Job: {selectedJob?.title}</p>
               </div>
-            </div>
+
+              <div className="space-y-4">
+                {/* Star Rating */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setSelectedRating(star)}
+                        className={`text-2xl ${
+                          star <= selectedRating 
+                            ? 'text-yellow-400 hover:text-yellow-500' 
+                            : 'text-gray-300 hover:text-gray-400'
+                        } transition-colors`}
+                      >
+                        <Star className={`w-8 h-8 ${star <= selectedRating ? 'fill-current' : ''}`} />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-sm text-gray-600">
+                      {selectedRating} out of 5 stars
+                    </span>
+                  </div>
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Comment (optional)
+                  </label>
+                  <textarea
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Share your experience working with this freelancer..."
+                  />
+                </div>
+
+                {/* Rating Explanation */}
+                <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-600">
+                  <div className="space-y-1">
+                    <div><strong>5 stars:</strong> Excellent work, exceeded expectations</div>
+                    <div><strong>4 stars:</strong> Good work, met expectations</div>
+                    <div><strong>3 stars:</strong> Satisfactory work, minor issues</div>
+                    <div><strong>2 stars:</strong> Below expectations, significant issues</div>
+                    <div><strong>1 star:</strong> Poor work, major problems</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <Button 
+                  onClick={handleSubmitApproval} 
+                  className="flex-1"
+                >
+                  Submit Rating & Pay
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRatingModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </Card>
           </div>
         )}
       </div>

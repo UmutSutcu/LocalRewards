@@ -604,15 +604,15 @@ class JobService {
         error: error instanceof Error ? error.message : 'Failed to fetch job',
       };
     }
-  }
-  /**
+  }  /**
    * Approve job completion, release escrow payment and mint reputation token
    */
   async approveJobCompletion(
     jobId: string,
     applicationId: string,
     employerAddress: string,
-    rating: number = 5
+    rating: number = 5,
+    comment: string = ''
   ): Promise<TransactionResult> {
     try {
       // Get current applications and jobs
@@ -706,8 +706,11 @@ class JobService {
           freelancerAddress: application.freelancerAddress,
           employerAddress: employerAddress,
           rating: rating,
+          comment: comment,
           mintedAt: new Date(),
-          tokenId: `sbt_${Date.now()}`
+          tokenId: `sbt_${Date.now()}`,
+          jobBudget: job.budget,
+          jobCurrency: job.currency
         };
         
         existingTokens.push(reputationToken);
