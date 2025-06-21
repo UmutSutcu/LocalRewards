@@ -169,9 +169,9 @@ const CustomerDashboard: React.FC = () => {
   ];
 
   const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];
-
   const handleEarnTokens = async (businessId: string) => {
-    if (!requireWalletWithModal()) {
+    const hasWallet = await requireWalletWithModal();
+    if (!hasWallet) {
       return;
     }
 
@@ -182,9 +182,9 @@ const CustomerDashboard: React.FC = () => {
       console.error('Token earning failed:', error);
     }
   };
-
   const handleRedeemReward = async (rewardId: string) => {
-    if (!requireWalletWithModal()) {
+    const hasWallet = await requireWalletWithModal();
+    if (!hasWallet) {
       return;
     }
 
@@ -255,18 +255,17 @@ const CustomerDashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Button 
-          onClick={() => {
-            if (requireWalletWithModal()) {
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">        <Button 
+          onClick={async () => {
+            const hasWallet = await requireWalletWithModal();
+            if (hasWallet) {
               setShowQRScanner(true);
             }
           }}
           className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-purple-600 to-blue-600"
         >
-          <QrCode className="w-6 h-6 mb-2" />
-          <div className="font-semibold">QR Kod Tara</div>
-          <div className="text-sm opacity-90 font-normal">Alışverişle token kazan</div>
+          <QrCode className="w-6 h-6 mb-2" />          <div className="font-semibold">Scan QR Code</div>
+          <div className="text-sm opacity-90 font-normal">Earn tokens by shopping</div>
         </Button>
 
         <Button 

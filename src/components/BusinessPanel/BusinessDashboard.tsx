@@ -71,7 +71,7 @@ const BusinessDashboard: React.FC = () => {
       customer: 'John Doe',
       customerAddress: 'GDXXX...XXXX',
       timestamp: new Date(),
-      description: 'Kahve satın alma'
+      description: 'Coffee purchase'
     },
     {
       id: '2', 
@@ -80,7 +80,7 @@ const BusinessDashboard: React.FC = () => {
       customer: 'Jane Smith',
       customerAddress: 'GCYYY...YYYY',
       timestamp: new Date(Date.now() - 3600000),
-      description: 'Ücretsiz kahve ödülü'
+      description: 'Free coffee reward'
     }
   ];
 
@@ -93,12 +93,12 @@ const BusinessDashboard: React.FC = () => {
       issued: 50000,
       redeemed: 12500,
       rate: 1,
-      description: 'Kahve satın alma ödülleri'
+      description: 'Coffee shop reward tokens'
     }
   ];
-
   const handleCreateToken = async () => {
-    if (!requireWalletWithModal()) {
+    const hasWallet = await requireWalletWithModal();
+    if (!hasWallet) {
       return;
     }
 
@@ -108,9 +108,9 @@ const BusinessDashboard: React.FC = () => {
       console.error('Token creation failed:', error);
     }
   };
-
   const handleDistributeTokens = async () => {
-    if (!requireWalletWithModal()) {
+    const hasWallet = await requireWalletWithModal();
+    if (!hasWallet) {
       return;
     }
 
@@ -136,68 +136,64 @@ const BusinessDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Toplam Token</p>
+              <p className="text-sm font-medium text-gray-600">Total Tokens</p>
               <p className="text-2xl font-bold text-gray-900">{formatNumber(businessStats.totalTokensIssued)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Coins className="w-6 h-6 text-blue-600" />
             </div>
-          </div>
-          <div className="mt-4 flex items-center">
+          </div>          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+12.5%</span>
-            <span className="text-sm text-gray-500 ml-1">bu ay</span>
+            <span className="text-sm text-gray-500 ml-1">this month</span>
           </div>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Aktif Müşteri</p>
+              <p className="text-sm font-medium text-gray-600">Active Customers</p>
               <p className="text-2xl font-bold text-gray-900">{formatNumber(businessStats.activeCustomers)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <Users className="w-6 h-6 text-green-600" />
             </div>
-          </div>
-          <div className="mt-4 flex items-center">
+          </div>          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+8.2%</span>
-            <span className="text-sm text-gray-500 ml-1">bu ay</span>
+            <span className="text-sm text-gray-500 ml-1">this month</span>
           </div>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Kullanılan Token</p>
+              <p className="text-sm font-medium text-gray-600">Redeemed Tokens</p>
               <p className="text-2xl font-bold text-gray-900">{formatNumber(businessStats.tokensRedeemed)}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <Gift className="w-6 h-6 text-purple-600" />
             </div>
-          </div>
-          <div className="mt-4 flex items-center">
+          </div>          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+15.3%</span>
-            <span className="text-sm text-gray-500 ml-1">bu ay</span>
+            <span className="text-sm text-gray-500 ml-1">this month</span>
           </div>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Dönüşüm Oranı</p>
+              <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
               <p className="text-2xl font-bold text-gray-900">{businessStats.conversionRate}%</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-orange-600" />
             </div>
-          </div>
-          <div className="mt-4 flex items-center">
+          </div>          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+2.1%</span>
-            <span className="text-sm text-gray-500 ml-1">bu ay</span>
+            <span className="text-sm text-gray-500 ml-1">this month</span>
           </div>
         </Card>
       </div>

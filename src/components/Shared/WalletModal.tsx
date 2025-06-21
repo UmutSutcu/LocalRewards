@@ -14,9 +14,8 @@ interface WalletModalProps {
 
 const WalletModal: React.FC<WalletModalProps> = ({ 
   isOpen, 
-  onClose, 
-  title = "Cüzdan Bağlantısı Gerekli",
-  description = "Bu işlemi gerçekleştirmek için cüzdanınızı bağlamanız gerekiyor."
+  onClose,   title = "Wallet Connection Required",
+  description = "You need to connect your wallet to perform this transaction."
 }) => {
   const { isFreighterInstalled, connectWallet, isLoading } = useWalletContext();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -39,14 +38,13 @@ const WalletModal: React.FC<WalletModalProps> = ({
         if (error.message === 'FREIGHTER_NOT_INSTALLED') {
           setError(freighterService.getErrorMessage('FREIGHTER_NOT_INSTALLED'));
         } else if (error.message === 'USER_REJECTED') {
-          setError(freighterService.getErrorMessage('USER_REJECTED'));
-        } else if (error.message === 'CONNECTION_FAILED') {
+          setError(freighterService.getErrorMessage('USER_REJECTED'));        } else if (error.message === 'CONNECTION_FAILED') {
           setError(freighterService.getErrorMessage('CONNECTION_FAILED'));
         } else {
-          setError('Cüzdan bağlantısı başarısız. Lütfen tekrar deneyin.');
+          setError('Wallet connection failed. Please try again.');
         }
       } else {
-        setError('Bilinmeyen bir hata oluştu.');
+        setError('An unknown error occurred.');
       }
     } finally {
       setIsConnecting(false);
@@ -57,17 +55,24 @@ const WalletModal: React.FC<WalletModalProps> = ({
     const installUrl = freighterService.getInstallationUrl();
     window.open(installUrl, '_blank');
   };
-
   const handleRefreshDetection = async () => {
     setIsCheckingInstallation(true);
     setError(null);
     
     try {
+      // Force refresh detection without page reload
       await freighterService.refreshDetection();
-      // Force a re-check by refreshing the page or triggering a state update
-      window.location.reload();
+      
+      // Small delay to let the detection complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Close modal if Freighter is now detected
+      const isNowInstalled = await freighterService.isFreighterInstalled();
+      if (isNowInstalled) {
+        onClose();
+      }
     } catch (error) {
-      setError('Cüzdan tespiti başarısız oldu.');
+      setError('Wallet detection failed.');
     } finally {
       setIsCheckingInstallation(false);
     }
@@ -94,12 +99,11 @@ const WalletModal: React.FC<WalletModalProps> = ({
               <div className="bg-orange-50 p-4 rounded-lg">
                 <div className="flex items-start space-x-3">
                   <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-orange-900 mb-1">
-                      Freighter Cüzdanı Bulunamadı
+                  <div>                    <h4 className="font-medium text-orange-900 mb-1">
+                      Freighter Wallet Not Found
                     </h4>
                     <p className="text-orange-700 text-sm">
-                      İşlemleri gerçekleştirmek için Freighter cüzdan uzantısına ihtiyacınız var.
+                      You need the Freighter wallet extension to perform transactions.
                     </p>
                   </div>
                 </div>
@@ -111,7 +115,7 @@ const WalletModal: React.FC<WalletModalProps> = ({
                   className="flex-1 flex items-center justify-center space-x-2"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Freighter'ı Yükle</span>
+                  <span>Install Freighter</span>
                 </Button>
                 
                 <Button
@@ -122,10 +126,8 @@ const WalletModal: React.FC<WalletModalProps> = ({
                 >
                   <RefreshCw className={`w-4 h-4 ${isCheckingInstallation ? 'animate-spin' : ''}`} />
                 </Button>
-              </div>
-
-              <p className="text-xs text-gray-500 text-center">
-                Freighter'ı yükledikten sonra yenile butonuna tıklayın
+              </div>              <p className="text-xs text-gray-500 text-center">
+                Click refresh after installing Freighter
               </p>
             </div>
           ) : (
@@ -133,12 +135,11 @@ const WalletModal: React.FC<WalletModalProps> = ({
               <div className="bg-blue-50 p-4 rounded-lg">
                 <div className="flex items-start space-x-3">
                   <Wallet className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-blue-900 mb-1">
-                      Freighter Cüzdanı Hazır
+                  <div>                    <h4 className="font-medium text-blue-900 mb-1">
+                      Freighter Wallet Ready
                     </h4>
                     <p className="text-blue-700 text-sm">
-                      Cüzdanınızı bağlamak için aşağıdaki butona tıklayın.
+                      Click the button below to connect your wallet.
                     </p>
                   </div>
                 </div>
@@ -151,13 +152,12 @@ const WalletModal: React.FC<WalletModalProps> = ({
               >
                 {isConnecting || isLoading ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Bağlanıyor...</span>
+                    <RefreshCw className="w-4 h-4 animate-spin" />                    <span>Connecting...</span>
                   </>
                 ) : (
                   <>
                     <Wallet className="w-4 h-4" />
-                    <span>Cüzdanı Bağla</span>
+                    <span>Connect Wallet</span>
                   </>
                 )}
               </Button>
@@ -169,7 +169,7 @@ const WalletModal: React.FC<WalletModalProps> = ({
               <div className="flex items-start space-x-3">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-red-900 mb-1">Hata</h4>
+                  <h4 className="font-medium text-red-900 mb-1">Error</h4>
                   <p className="text-red-700 text-sm">{error}</p>
                 </div>
               </div>
@@ -179,10 +179,9 @@ const WalletModal: React.FC<WalletModalProps> = ({
           <div className="flex space-x-3">
             <Button
               variant="outline"
-              onClick={onClose}
-              className="flex-1"
+              onClick={onClose}              className="flex-1"
             >
-              İptal
+              Cancel
             </Button>
           </div>
         </div>

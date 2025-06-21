@@ -1,81 +1,22 @@
 import { FreighterApi } from '@/types';
+import { freighterDetector } from '@/utils/freighterDetection';
 
 class FreighterWalletService {
   private freighterApi: FreighterApi | null = null;
-  private isDetecting = false;
-
   constructor() {
     // Don't auto-initialize, detect only when needed
   }
 
-  private async initializeFreighter(): Promise<boolean> {
-    if (this.isDetecting) return false;
-    this.isDetecting = true;
-
-    try {
-      // Check multiple possible locations for Freighter
-      const possibleApis = [
-        window.freighterApi,
-        (window as any).freighter,
-        (window as any).stellar,
-        (window as any).StellarFreighter
-      ];
-
-      for (const api of possibleApis) {
-        if (api && typeof api.getPublicKey === 'function') {
-          this.freighterApi = api;
-          return true;
-        }
-      }
-
-      // Wait for potential async loading
-      await this.waitForFreighter();
-      return this.freighterApi !== null;
-    } finally {
-      this.isDetecting = false;
-    }
-  }
-
-  private async waitForFreighter(): Promise<void> {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const maxAttempts = 20; // 2 seconds
-      
-      const checkInterval = setInterval(() => {
-        attempts++;
-        
-        const possibleApis = [
-          window.freighterApi,
-          (window as any).freighter,
-          (window as any).stellar,
-          (window as any).StellarFreighter
-        ];
-
-        for (const api of possibleApis) {
-          if (api && typeof api.getPublicKey === 'function') {
-            this.freighterApi = api;
-            clearInterval(checkInterval);
-            resolve();
-            return;
-          }
-        }
-
-        if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
-    });
-  }
   /**
    * Check if Freighter is installed with improved detection
    */
   async isFreighterInstalled(): Promise<boolean> {
-    // First check if already detected
-    if (this.freighterApi) return true;
-
-    // Try to initialize
-    return await this.initializeFreighter();
+    // Use enhanced detection utility
+    const isDetected = await freighterDetector.detectFreighter();
+    if (isDetected && !this.freighterApi) {
+      this.freighterApi = window.freighterApi || null;
+    }
+    return isDetected;
   }
 
   /**
@@ -222,13 +163,12 @@ class FreighterWalletService {
     } else {
       return 'https://www.freighter.app/';
     }
-  }
-  /**
+  }  /**
    * Force refresh Freighter detection
    */
   async refreshDetection(): Promise<boolean> {
     this.freighterApi = null;
-    return await this.initializeFreighter();
+    return await freighterDetector.forceRedetection();
   }
 
   /**
@@ -252,20 +192,19 @@ class FreighterWalletService {
     
     return { publicKey, network };
   }
-
   /**
    * Get user-friendly error messages
    */
   getErrorMessage(errorCode: string): string {
     switch (errorCode) {
       case 'FREIGHTER_NOT_INSTALLED':
-        return 'Freighter cüzdanı kurulu değil. Lütfen Freighter uzantısını yükleyin.';
+        return 'Freighter wallet is not installed. Please install the Freighter extension.';
       case 'USER_REJECTED':
-        return 'Cüzdan bağlantısı kullanıcı tarafından reddedildi.';
+        return 'Wallet connection was declined by user.';
       case 'CONNECTION_FAILED':
-        return 'Cüzdan bağlantısı başarısız. Lütfen tekrar deneyin.';
+        return 'Wallet connection failed. Please try again.';
       default:
-        return 'Bilinmeyen bir hata oluştu.';
+        return 'An unknown error occurred.';
     }
   }
 }

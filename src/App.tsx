@@ -37,23 +37,21 @@ function AppContent() {
             <div className="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center">
               <Heart className="w-8 h-8 text-white" />
             </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          </div>          <h1 className="text-4xl font-bold text-gray-900 mb-4">
             StellarLocalRewards
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Stellar blockchain tabanlı yerel sadakat programı ve mikro-bağış platformu. 
-            Cüzdan bağlamadan keşfedin, işlem yapmak için bağlayın.
+            Stellar blockchain-based local loyalty program and micro-donation platform. 
+            Explore without wallet connection, connect only for transactions.
           </p>
         </div>
 
         {/* Wallet Status */}
         {isConnected && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
-            <div className="flex items-center justify-center space-x-2">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">            <div className="flex items-center justify-center space-x-2">
               <Wallet className="w-5 h-5 text-green-600" />
               <span className="text-green-800 font-medium">
-                Cüzdan Bağlı: {address?.substring(0, 8)}...{address?.substring(-8)}
+                Wallet Connected: {address?.substring(0, 8)}...{address?.substring(-8)}
               </span>
             </div>
           </div>
@@ -68,13 +66,12 @@ function AppContent() {
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Building2 className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">İşletme</h3>
+              </div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">Business</h3>
               <p className="text-gray-600 mb-4">
-                Müşteri sadakat programları oluşturun ve yönetin. Token dağıtın, müşteri bağlılığını artırın.
+                Create and manage customer loyalty programs. Distribute tokens, increase customer loyalty.
               </p>
               <div className="text-sm text-blue-600 font-medium">
-                Sadakat programları, Token yönetimi, Müşteri analitiği
+                Loyalty programs, Token management, Customer analytics
               </div>
             </div>
           </div>
@@ -86,13 +83,12 @@ function AppContent() {
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Müşteri</h3>
+              </div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">Customer</h3>
               <p className="text-gray-600 mb-4">
-                Alışveriş yaparak token kazanın, ödülleri keşfedin ve kullanın. Yerel işletmeleri destekleyin.
+                Earn tokens by shopping, discover and use rewards. Support local businesses.
               </p>
               <div className="text-sm text-green-600 font-medium">
-                Token kazanma, Ödül kullanma, Yerel destek
+                Token earning, Reward redemption, Local support
               </div>
             </div>
           </div>
@@ -104,13 +100,12 @@ function AppContent() {
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Heart className="w-8 h-8 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Bağışçı</h3>
+              </div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">Donor</h3>
               <p className="text-gray-600 mb-4">
-                Sosyal sorumluluk projelerine mikro-bağışlar yapın. Şeffaf ve güvenli bağış sistemi.
+                Make micro-donations to social responsibility projects. Transparent and secure donation system.
               </p>
               <div className="text-sm text-purple-600 font-medium">
-                Mikro-bağışlar, Şeffaflık, Sosyal etki
+                Micro-donations, Transparency, Social impact
               </div>
             </div>
           </div>
@@ -125,12 +120,11 @@ function AppContent() {
 
         {/* Back button for selected user type */}
         {selectedUserType && (
-          <div className="mt-8 text-center">
-            <button
+          <div className="mt-8 text-center">            <button
               onClick={() => setSelectedUserType(null)}
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              ← Ana Sayfaya Dön
+              ← Back to Home
             </button>
           </div>
         )}
@@ -145,9 +139,8 @@ function AppContent() {
       {/* Wallet Modal */}
       <WalletModal
         isOpen={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
-        title="Cüzdan Bağlantısı Gerekli"
-        description="Bu işlemi gerçekleştirmek için cüzdanınızı bağlamanız gerekiyor."
+        onClose={() => setShowWalletModal(false)}        title="Wallet Connection Required"
+        description="You need to connect your wallet to perform this transaction."
       />
     </div>
   );

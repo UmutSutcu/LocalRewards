@@ -19,9 +19,8 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
       await freighterApi.requestAccess();
       const address = await freighterApi.getPublicKey();
       onConnect(address);
-    } catch (error) {
-      console.error("Error connecting to Freighter:", error);
-      alert("Cüzdan bağlantısında hata oluştu. Freighter uzantısının yüklü olduğundan emin olun.");
+    } catch (error) {      console.error("Error connecting to Freighter:", error);
+      alert("Error connecting to wallet. Please make sure Freighter extension is installed.");
     } finally {
       setConnecting(false);
     }
@@ -44,7 +43,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
       const userBalance = await stellarService.getBalance(publicKey);
       setBalance(userBalance);
     } catch (error) {
-      console.error('Bakiye yüklenemedi:', error);
+      console.error('Failed to load balance:', error);
       setBalance('0');
     } finally {
       setLoadingBalance(false);
@@ -53,22 +52,21 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
 
   const handleFundAccount = async () => {
     if (!publicKey) return;
-    
-    const confirmFund = window.confirm(
-      'Testnet hesabınızı 10000 XLM ile fonlamak ister misiniz?\n\n' +
-      'Bu işlem sadece test amaçlıdır ve gerçek para değeri yoktur.'
+      const confirmFund = window.confirm(
+      'Do you want to fund your testnet account with 10000 XLM?\n\n' +
+      'This is for testing purposes only and has no real monetary value.'
     );
     
     if (!confirmFund) return;    try {
       const result = await StellarService.fundTestAccount(publicKey);
       if (result.success) {
-        alert('✅ Hesap başarıyla fonlandı!');
+        alert('✅ Account funded successfully!');
         await loadBalance();
       } else {
-        alert('❌ Hesap fonlanamadı');
+        alert('❌ Failed to fund account');
       }
     } catch (error) {
-      alert('❌ Hesap fonlanamadı');
+      alert('❌ Failed to fund account');
     }
   };
 
@@ -80,7 +78,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
             <span className="text-2xl">👛</span>
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Stellar Cüzdan</h3>
+            <h3 className="text-lg font-semibold text-white">Stellar Wallet</h3>
             {publicKey ? (
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
@@ -92,12 +90,12 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
                 <div className="flex items-center space-x-2">
                   <span className="text-blue-300 text-sm">💰</span>
                   <span className="text-blue-300 font-mono text-sm">
-                    {loadingBalance ? 'Yükleniyor...' : `${parseFloat(balance).toFixed(4)} XLM`}
+                    {loadingBalance ? 'Loading...' : `${parseFloat(balance).toFixed(4)} XLM`}
                   </span>
                   <button
                     onClick={loadBalance}
                     className="text-blue-400 hover:text-blue-300 text-xs"
-                    title="Bakiyeyi yenile"
+                    title="Refresh balance"
                   >
                     🔄
                   </button>
@@ -120,11 +118,10 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
           >
             {connecting ? (
               <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Bağlanıyor...</span>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>                <span>Connecting...</span>
               </div>
             ) : (
-              "Freighter Bağla"
+              "Connect Freighter"
             )}
           </button>
         )}
@@ -135,7 +132,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
           <div className="p-4 bg-green-500/20 rounded-lg border border-green-500/30">
             <div className="flex items-center space-x-2">
               <span className="text-green-400">✅</span>
-              <span className="text-green-400 font-medium">Cüzdan başarıyla bağlandı!</span>
+              <span className="text-green-400 font-medium">Wallet connected successfully!</span>
             </div>
           </div>
           
@@ -146,7 +143,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
                        text-white font-bold py-2 px-4 rounded-xl transition-all duration-200 
                        transform hover:scale-105 active:scale-95 shadow-lg text-sm"
             >
-              🚰 Test Hesabını Fonla
+              🚰 Fund Test Account
             </button>
             
             <button
@@ -155,18 +152,17 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
                        text-white font-bold py-2 px-4 rounded-xl transition-all duration-200 
                        transform hover:scale-105 active:scale-95 shadow-lg text-sm"
             >
-              🔍 Hesabı Görüntüle
+              🔍 View Account
             </button>
           </div>
           
           <div className="p-3 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
-            <div className="text-center">
-              <span className="text-yellow-300 text-sm">
-                ⚡ Testnet ağında çalışıyorsunuz
+            <div className="text-center">              <span className="text-yellow-300 text-sm">
+                ⚡ You are on Testnet
               </span>
               <br />
               <span className="text-yellow-200 text-xs">
-                Bu gerçek para değildir, sadece test amaçlıdır
+                This is not real money, for testing purposes only
               </span>
             </div>
           </div>

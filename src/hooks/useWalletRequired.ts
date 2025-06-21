@@ -37,13 +37,24 @@ export const useWalletRequired = () => {
       setShowWalletModal(true);
       throw new Error('WALLET_REQUIRED');
     }
-  };
-  const requireWalletWithModal = () => {
-    if (!isConnected) {
-      setShowWalletModal(true);
-      return false;
+  };  const requireWalletWithModal = async () => {
+    // Check if connected AND Freighter API is available
+    if (isConnected) {
+      try {
+        // Verify that Freighter API is actually working
+        await freighterService.requireWalletConnection();
+        return true;
+      } catch (error) {
+        console.error('Freighter API not available:', error);
+        // Reset connection state and show modal
+        setShowWalletModal(true);
+        return false;
+      }
     }
-    return true;
+    
+    // Not connected, show modal
+    setShowWalletModal(true);
+    return false;
   };
 
   return {

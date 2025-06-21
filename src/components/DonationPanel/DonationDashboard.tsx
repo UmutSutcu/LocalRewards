@@ -62,30 +62,28 @@ export const DonationDashboard: React.FC = () => {
   useEffect(() => {
     const mockCampaigns: DonationCampaign[] = [
       {
-        id: '1',
-        title: 'Çocuklar İçin Eğitim Yardımı',
-        description: 'Maddi durumu iyi olmayan çocukların eğitim masraflarını karşılamaya yardımcı olun. Her bağış bir çocuğun geleceğini aydınlatıyor.',
+        id: '1',        title: 'Education Aid for Children',
+        description: 'Help cover educational expenses for children from low-income families. Every donation illuminates a child\'s future.',
         targetAmount: 50000,
         currentAmount: 32500,
         endDate: '2024-12-31',
-        category: 'Eğitim',
-        organizerName: 'Eğitim Derneği',
+        category: 'Education',
+        organizerName: 'Education Association',
         organizerAddress: 'GBXXX...XXXX',
         isActive: true,
         image: 'https://images.unsplash.com/photo-1497486751825-1233686d5d80?w=400',
-        location: 'İstanbul',
+        location: 'Istanbul',
         donorCount: 245,
         urgencyLevel: 'high'
       },
       {
-        id: '2',
-        title: 'Sokak Hayvanları Yardımı',
-        description: 'Sokak hayvanlarının beslenme ve tedavi masrafları için bağış kampanyası. Onların sağlıklı yaşaması için desteğinizi bekliyoruz.',
+        id: '2',        title: 'Street Animals Aid',
+        description: 'Donation campaign for feeding and medical expenses of street animals. We await your support for their healthy living.',
         targetAmount: 25000,
         currentAmount: 18750,
         endDate: '2024-11-30',
-        category: 'Hayvan Hakları',
-        organizerName: 'Hayvan Severler Derneği',
+        category: 'Animal Rights',
+        organizerName: 'Animal Lovers Association',
         organizerAddress: 'GCYYY...YYYY',
         isActive: true,
         image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400',
@@ -94,18 +92,17 @@ export const DonationDashboard: React.FC = () => {
         urgencyLevel: 'medium'
       },
       {
-        id: '3',
-        title: 'Yaşlılar İçin Sıcak Yemek',
-        description: 'Yalnız yaşayan yaşlı vatandaşlar için günlük sıcak yemek hizmeti. Onlara sıcak bir öğün ve sevgi ulaştıralım.',
+        id: '3',        title: 'Hot Meals for Elderly',
+        description: 'Daily hot meal service for elderly citizens living alone. Let\'s bring them a warm meal and love.',
         targetAmount: 75000,
         currentAmount: 45000,
         endDate: '2025-01-15',
-        category: 'Sosyal Yardım',
-        organizerName: 'Sosyal Dayanışma Vakfı',
+        category: 'Social Aid',
+        organizerName: 'Social Solidarity Foundation',
         organizerAddress: 'GDZZZ...ZZZZ',
         isActive: true,
         image: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400',
-        location: 'İzmir',
+        location: 'Izmir',
         donorCount: 312,
         urgencyLevel: 'low'
       }
@@ -115,7 +112,7 @@ export const DonationDashboard: React.FC = () => {
       {
         id: '1',
         campaignId: '1',
-        campaignTitle: 'Çocuklar İçin Eğitim Yardımı',
+        campaignTitle: 'Education Aid for Children',
         amount: 500,
         timestamp: '2024-01-15T10:30:00Z',
         txHash: '0xabc123...',
@@ -125,7 +122,7 @@ export const DonationDashboard: React.FC = () => {
       {
         id: '2',
         campaignId: '2',
-        campaignTitle: 'Sokak Hayvanları Yardımı',
+        campaignTitle: 'Street Animals Aid',
         amount: 250,
         timestamp: '2024-01-10T15:45:00Z',
         txHash: '0xdef456...',
@@ -141,12 +138,12 @@ export const DonationDashboard: React.FC = () => {
     }, 1000);
   }, []);
 
-  const categories = ['all', 'Eğitim', 'Hayvan Hakları', 'Sosyal Yardım', 'Acil Durum', 'Sağlık'];
-
+  const categories = ['all', 'Education', 'Animal Rights', 'Social Aid', 'Emergency', 'Health'];
   const handleDonate = async () => {
     if (!selectedCampaign || !donationAmount) return;
 
-    if (!requireWalletWithModal()) {
+    const hasWallet = await requireWalletWithModal();
+    if (!hasWallet) {
       return;
     }
 
@@ -222,7 +219,7 @@ export const DonationDashboard: React.FC = () => {
           <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Kampanya ara..."
+            placeholder="Search campaigns..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -235,7 +232,7 @@ export const DonationDashboard: React.FC = () => {
         >
           {categories.map(category => (
             <option key={category} value={category}>
-              {category === 'all' ? 'Tüm Kategoriler' : category}
+              {category === 'all' ? 'All Categories' : category}
             </option>
           ))}
         </select>
@@ -246,7 +243,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100">Aktif Kampanya</p>
+              <p className="text-blue-100">Active Campaigns</p>
               <p className="text-3xl font-bold">{campaigns.filter(c => c.isActive).length}</p>
             </div>
             <Target className="w-8 h-8 text-white/80" />
@@ -256,7 +253,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100">Toplam Bağışçı</p>
+              <p className="text-green-100">Total Donors</p>
               <p className="text-3xl font-bold">{campaigns.reduce((sum, c) => sum + c.donorCount, 0)}</p>
             </div>
             <Users className="w-8 h-8 text-white/80" />
@@ -266,7 +263,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-orange-500 to-red-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100">Toplanan Miktar</p>
+              <p className="text-orange-100">Amount Raised</p>
               <p className="text-3xl font-bold">{formatCurrency(campaigns.reduce((sum, c) => sum + c.currentAmount, 0))}</p>
             </div>
             <DollarSign className="w-8 h-8 text-white/80" />
@@ -276,7 +273,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-purple-500 to-pink-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100">Hedef Miktar</p>
+              <p className="text-purple-100">Target Amount</p>
               <p className="text-3xl font-bold">{formatCurrency(campaigns.reduce((sum, c) => sum + c.targetAmount, 0))}</p>
             </div>
             <TrendingUp className="w-8 h-8 text-white/80" />
@@ -296,9 +293,8 @@ export const DonationDashboard: React.FC = () => {
                   className="w-full h-48 object-cover"
                 />
                 <div className="absolute top-4 right-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getUrgencyColor(campaign.urgencyLevel)}`}>
-                    {campaign.urgencyLevel === 'high' ? 'Acil' : 
-                     campaign.urgencyLevel === 'medium' ? 'Orta' : 'Düşük'} Öncelik
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getUrgencyColor(campaign.urgencyLevel)}`}>                    {campaign.urgencyLevel === 'high' ? 'Urgent' : 
+                     campaign.urgencyLevel === 'medium' ? 'Medium' : 'Low'} Priority
                   </span>
                 </div>
               </div>
@@ -317,13 +313,13 @@ export const DonationDashboard: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-1">
                   <Users className="w-4 h-4" />
-                  <span>{campaign.donorCount} bağışçı</span>
+                  <span>{campaign.donorCount} donors</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Toplanan</span>
+                  <span className="text-gray-600">Raised</span>
                   <span className="font-semibold">{formatCurrency(campaign.currentAmount)}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
@@ -333,7 +329,7 @@ export const DonationDashboard: React.FC = () => {
                   ></div>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Hedef: {formatCurrency(campaign.targetAmount)}</span>
+                  <span className="text-gray-600">Target: {formatCurrency(campaign.targetAmount)}</span>
                   <span className="font-semibold text-primary-600">
                     %{getProgressPercentage(campaign.currentAmount, campaign.targetAmount).toFixed(1)}
                   </span>
@@ -341,16 +337,15 @@ export const DonationDashboard: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between text-sm text-gray-500">
-                <span>Düzenleyen: {campaign.organizerName}</span>
+                <span>Organizer: {campaign.organizerName}</span>
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
-                  <span>{new Date(campaign.endDate).toLocaleDateString('tr-TR')}</span>
+                  <span>{new Date(campaign.endDate).toLocaleDateString('en-US')}</span>
                 </div>
-              </div>
-
-              <Button 
-                onClick={() => {
-                  if (requireWalletWithModal()) {
+              </div>              <Button 
+                onClick={async () => {
+                  const hasWallet = await requireWalletWithModal();
+                  if (hasWallet) {
                     setSelectedCampaign(campaign);
                   }
                 }}
@@ -358,7 +353,7 @@ export const DonationDashboard: React.FC = () => {
                 size="lg"
               >
                 <Heart className="w-4 h-4 mr-2" />
-                Bağış Yap
+                Donate
               </Button>
             </div>
           </Card>
@@ -367,9 +362,8 @@ export const DonationDashboard: React.FC = () => {
 
       {filteredCampaigns.length === 0 && (
         <Card className="p-12 text-center">
-          <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">Kampanya Bulunamadı</h3>
-          <p className="text-gray-500">Arama kriterlerinize uygun kampanya bulunmuyor.</p>
+          <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />          <h3 className="text-lg font-medium text-gray-600 mb-2">No Campaigns Found</h3>
+          <p className="text-gray-500">No campaigns match your search criteria.</p>
         </Card>
       )}
     </div>
@@ -381,7 +375,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100">Toplam Bağış</p>
+              <p className="text-green-100">Total Donations</p>
               <p className="text-3xl font-bold">{formatCurrency(totalDonated)}</p>
             </div>
             <DollarSign className="w-8 h-8 text-white/80" />
@@ -391,7 +385,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100">Desteklenen Kampanya</p>
+              <p className="text-blue-100">Supported Campaigns</p>
               <p className="text-3xl font-bold">{totalCampaignsSupported}</p>
             </div>
             <Target className="w-8 h-8 text-white/80" />
@@ -401,7 +395,7 @@ export const DonationDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-orange-500 to-red-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100">Bağış Sayısı</p>
+              <p className="text-orange-100">Number of Donations</p>
               <p className="text-3xl font-bold">{donations.length}</p>
             </div>
             <Heart className="w-8 h-8 text-white/80" />
@@ -411,7 +405,7 @@ export const DonationDashboard: React.FC = () => {
 
       <Card>
         <div className="p-6">
-          <h3 className="text-xl font-semibold mb-6">Bağış Geçmişim</h3>
+          <h3 className="text-xl font-semibold mb-6">My Donation History</h3>
           {donations.length > 0 ? (
             <div className="space-y-4">
               {donations.map((donation) => (
@@ -423,18 +417,17 @@ export const DonationDashboard: React.FC = () => {
                     <div>
                       <h4 className="font-medium">{donation.campaignTitle}</h4>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span>{new Date(donation.timestamp).toLocaleDateString('tr-TR')}</span>
+                        <span>{new Date(donation.timestamp).toLocaleDateString('en-US')}</span>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           donation.status === 'completed' ? 'bg-green-100 text-green-800' :
                           donation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
-                        }`}>
-                          {donation.status === 'completed' ? 'Tamamlandı' :
-                           donation.status === 'pending' ? 'Bekliyor' : 'Başarısız'}
+                        }`}>                          {donation.status === 'completed' ? 'Completed' :
+                           donation.status === 'pending' ? 'Pending' : 'Failed'}
                         </span>
                         {donation.isAnonymous && (
                           <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium">
-                            Anonim
+                            Anonymous
                           </span>
                         )}
                       </div>
@@ -445,10 +438,9 @@ export const DonationDashboard: React.FC = () => {
                       {formatCurrency(donation.amount)}
                     </div>
                     <button
-                      onClick={() => window.open(`https://stellar.expert/explorer/testnet/tx/${donation.txHash}`, '_blank')}
-                      className="text-sm text-blue-600 hover:text-blue-800"
+                      onClick={() => window.open(`https://stellar.expert/explorer/testnet/tx/${donation.txHash}`, '_blank')}                      className="text-sm text-blue-600 hover:text-blue-800"
                     >
-                      İşlemi Görüntüle
+                      View Transaction
                     </button>
                   </div>
                 </div>
@@ -456,11 +448,10 @@ export const DonationDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="text-center py-8">
-              <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h4 className="text-lg font-medium text-gray-600 mb-2">Henüz bağış yapmadınız</h4>
-              <p className="text-gray-500 mb-4">İlk bağışınızı yaparak bir kampanyaya destek olun!</p>
+              <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />              <h4 className="text-lg font-medium text-gray-600 mb-2">You haven't made any donations yet</h4>
+              <p className="text-gray-500 mb-4">Make your first donation to support a campaign!</p>
               <Button onClick={() => setSelectedTab('campaigns')}>
-                Kampanyaları Keşfet
+                Explore Campaigns
               </Button>
             </div>
           )}
@@ -471,10 +462,9 @@ export const DonationDashboard: React.FC = () => {
 
   const renderAnalytics = () => (
     <div className="space-y-6">
-      <Card className="p-6">
-        <h3 className="text-xl font-semibold mb-4">Bağış Analitikleri</h3>
+      <Card className="p-6">        <h3 className="text-xl font-semibold mb-4">Donation Analytics</h3>
         <p className="text-center text-gray-500 py-8">
-          Detaylı analitikler yakında geliyor...
+          Detailed analytics coming soon...
         </p>
       </Card>
     </div>
@@ -492,9 +482,8 @@ export const DonationDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bağış Platformu</h1>
-          <p className="text-gray-600">Değerli amaçları destekleyin ve topluma katkıda bulunun</p>
+        <div className="mb-8">          <h1 className="text-3xl font-bold text-gray-900 mb-2">Donation Platform</h1>
+          <p className="text-gray-600">Support valuable causes and contribute to society</p>
         </div>
 
         {/* Wallet Connection */}
@@ -508,10 +497,9 @@ export const DonationDashboard: React.FC = () => {
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-8">
           <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'campaigns', label: 'Kampanyalar', icon: Target },
-              { id: 'my-donations', label: 'Bağışlarım', icon: Heart },
-              { id: 'analytics', label: 'Analitikler', icon: TrendingUp },
+            {[              { id: 'campaigns', label: 'Campaigns', icon: Target },
+              { id: 'my-donations', label: 'My Donations', icon: Heart },
+              { id: 'analytics', label: 'Analytics', icon: TrendingUp },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -540,7 +528,7 @@ export const DonationDashboard: React.FC = () => {
             <Card className="max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-semibold">Bağış Yap</h3>
+                  <h3 className="text-xl font-semibold">Make a Donation</h3>
                   <button
                     onClick={() => setSelectedCampaign(null)}
                     className="text-gray-400 hover:text-gray-600"
@@ -555,9 +543,8 @@ export const DonationDashboard: React.FC = () => {
                     <p className="text-sm text-gray-600">{selectedCampaign.organizerName}</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Bağış Miktarı (TL)
+                  <div className="space-y-2">                    <label className="block text-sm font-medium text-gray-700">
+                      Donation Amount (USD)
                     </label>
                     <input
                       type="number"
@@ -575,23 +562,21 @@ export const DonationDashboard: React.FC = () => {
                       checked={isAnonymous}
                       onChange={(e) => setIsAnonymous(e.target.checked)}
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <label htmlFor="anonymous" className="text-sm text-gray-700">
-                      Anonim bağış yap
+                    />                    <label htmlFor="anonymous" className="text-sm text-gray-700">
+                      Make anonymous donation
                     </label>
                   </div>
 
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex justify-between text-sm">
-                      <span>Kampanya:</span>
+                    <div className="flex justify-between text-sm">                      <span>Campaign:</span>
                       <span>{selectedCampaign.title}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>Bağış Miktarı:</span>
-                      <span className="font-medium">{donationAmount ? formatCurrency(parseFloat(donationAmount)) : '0 TL'}</span>
+                      <span>Donation Amount:</span>
+                      <span className="font-medium">{donationAmount ? formatCurrency(parseFloat(donationAmount)) : '$0'}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>İşlem Ücreti:</span>
+                      <span>Transaction Fee:</span>
                       <span>~0.01 XLM</span>
                     </div>
                   </div>
@@ -600,10 +585,9 @@ export const DonationDashboard: React.FC = () => {
                     <Button
                       variant="outline"
                       onClick={() => setSelectedCampaign(null)}
-                      className="flex-1"
-                      disabled={isDonating}
+                      className="flex-1"                      disabled={isDonating}
                     >
-                      İptal
+                      Cancel
                     </Button>
                     <Button
                       onClick={handleDonate}
@@ -613,10 +597,10 @@ export const DonationDashboard: React.FC = () => {
                       {isDonating ? (
                         <div className="flex items-center space-x-2">
                           <LoadingSpinner />
-                          <span>Gönderiliyor...</span>
+                          <span>Sending...</span>
                         </div>
                       ) : (
-                        'Bağış Yap'
+                        'Donate'
                       )}
                     </Button>
                   </div>
