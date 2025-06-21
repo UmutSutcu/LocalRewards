@@ -54,12 +54,35 @@ const BusinessDashboard: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<'createToken' | 'distributeTokens' | null>(null);
   const { requireWalletWithModal, address } = useWalletRequired();
-  // Auto-update wallet address
+
+  // Auto-update wallet address and handle pending actions - CustomerDashboard style
   useEffect(() => {
+    console.log('useEffect triggered - address:', address, 'pendingAction:', pendingAction);
+    
     if (address) {
       setWalletAddress(address);
+      console.log('Wallet address updated:', address);
+      
+      // Execute pending action if any
+      if (pendingAction) {
+        console.log('Executing pending action:', pendingAction);
+        
+        switch (pendingAction) {
+          case 'createToken':
+            console.log('Executing pending token creation');
+            setShowCreateToken(true);
+            break;
+          case 'distributeTokens':
+            console.log('Executing pending token distribution');
+            setShowDistributeTokens(true);
+            break;
+        }
+        // Clear pending actions
+        console.log('Clearing pending actions');
+        setPendingAction(null);
+      }
     }
-  }, [address]);
+  }, [address, pendingAction]);
 
   // Mock data
   const businessStats: BusinessStats = {
@@ -102,7 +125,9 @@ const BusinessDashboard: React.FC = () => {
       rate: 1,
       description: 'Coffee shop reward tokens'
     }
-  ];  const handleCreateToken = async () => {
+  ];
+
+  const handleCreateToken = async () => {
     console.log('handleCreateToken called, current address:', address);
     
     // If wallet is already connected, proceed immediately
@@ -112,18 +137,11 @@ const BusinessDashboard: React.FC = () => {
       return;
     }
     
-    // Check wallet connection first
-    console.log('Wallet not connected, showing modal');
-    const isWalletConnected = await requireWalletWithModal();
-    if (!isWalletConnected) {
-      // Modal was shown, set pending action to execute after wallet connects
-      console.log('Modal shown, setting pending create token action');
-      setPendingAction('createToken');
-      return;
-    }
-    
-    // This shouldn't happen with current logic, but just in case
-    setShowCreateToken(true);
+    // If no wallet connection, show modal and set pending action
+    console.log('Wallet not connected, showing modal and setting pending action');
+    setPendingAction('createToken');
+    await requireWalletWithModal();
+    // Pending action will be executed by the useEffect when wallet connects
   };
 
   const handleDistributeTokens = async () => {
@@ -136,40 +154,16 @@ const BusinessDashboard: React.FC = () => {
       return;
     }
     
-    // Check wallet connection first
-    console.log('Wallet not connected, showing modal');
-    const isWalletConnected = await requireWalletWithModal();
-    if (!isWalletConnected) {
-      // Modal was shown, set pending action to execute after wallet connects
-      console.log('Modal shown, setting pending distribute tokens action');
-      setPendingAction('distributeTokens');
-      return;
-    }
-    
-    // This shouldn't happen with current logic, but just in case
-    setShowDistributeTokens(true);
+    // If no wallet connection, show modal and set pending action
+    console.log('Wallet not connected, showing modal and setting pending action');
+    setPendingAction('distributeTokens');
+    await requireWalletWithModal();
+    // Pending action will be executed by the useEffect when wallet connects
   };
-
-  // Auto-trigger pending actions when wallet connects
-  useEffect(() => {
-    if (address && pendingAction) {
-      // Execute the pending action now that wallet is connected
-      switch (pendingAction) {
-        case 'createToken':
-          setShowCreateToken(true);
-          break;
-        case 'distributeTokens':
-          setShowDistributeTokens(true);
-          break;
-      }
-      // Clear the pending action
-      setPendingAction(null);
-    }
-  }, [address, pendingAction]);
 
   const renderOverview = () => (
     <div className="space-y-6">
-      {/* Wallet Connection */}
+      {/* Wallet Connection - CustomerDashboard Style */}
       <div className="mb-6">
         <WalletConnection 
           publicKey={walletAddress} 
@@ -188,7 +182,8 @@ const BusinessDashboard: React.FC = () => {
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Coins className="w-6 h-6 text-blue-600" />
             </div>
-          </div>          <div className="mt-4 flex items-center">
+          </div>
+          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+12.5%</span>
             <span className="text-sm text-gray-500 ml-1">this month</span>
@@ -204,7 +199,8 @@ const BusinessDashboard: React.FC = () => {
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <Users className="w-6 h-6 text-green-600" />
             </div>
-          </div>          <div className="mt-4 flex items-center">
+          </div>
+          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+8.2%</span>
             <span className="text-sm text-gray-500 ml-1">this month</span>
@@ -220,7 +216,8 @@ const BusinessDashboard: React.FC = () => {
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <Gift className="w-6 h-6 text-purple-600" />
             </div>
-          </div>          <div className="mt-4 flex items-center">
+          </div>
+          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+15.3%</span>
             <span className="text-sm text-gray-500 ml-1">this month</span>
@@ -236,13 +233,16 @@ const BusinessDashboard: React.FC = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-orange-600" />
             </div>
-          </div>          <div className="mt-4 flex items-center">
+          </div>
+          <div className="mt-4 flex items-center">
             <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-sm text-green-600">+2.1%</span>
             <span className="text-sm text-gray-500 ml-1">this month</span>
           </div>
         </Card>
-      </div>      {/* Quick Actions */}
+      </div>
+
+      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Button 
           onClick={handleCreateToken}
@@ -313,7 +313,8 @@ const BusinessDashboard: React.FC = () => {
 
   const renderTokens = () => (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">        <h2 className="text-2xl font-semibold">Token Management</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold">Token Management</h2>
         <Button onClick={handleCreateToken}>
           <Plus className="w-4 h-4 mr-2" />
           Create New Token
@@ -333,7 +334,8 @@ const BusinessDashboard: React.FC = () => {
                   <p className="text-gray-600">{token.symbol}</p>
                 </div>
               </div>
-              <div className="flex space-x-2">                <Button variant="outline" size="sm">
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm">
                   <Eye className="w-4 h-4 mr-1" />
                   View
                 </Button>
@@ -346,7 +348,8 @@ const BusinessDashboard: React.FC = () => {
 
             <p className="text-gray-600 mb-4">{token.description}</p>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">              <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
                 <p className="text-sm text-gray-500">Total Supply</p>
                 <p className="font-semibold">{formatNumber(token.totalSupply)}</p>
               </div>
@@ -364,7 +367,8 @@ const BusinessDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 flex space-x-3">              <Button onClick={handleDistributeTokens} className="flex-1">
+            <div className="mt-4 flex space-x-3">
+              <Button onClick={handleDistributeTokens} className="flex-1">
                 Distribute Tokens
               </Button>
               <Button variant="outline" className="flex-1">
@@ -378,7 +382,8 @@ const BusinessDashboard: React.FC = () => {
   );
 
   const renderCustomers = () => (
-    <div className="space-y-6">      <h2 className="text-2xl font-semibold">Customer Management</h2>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold">Customer Management</h2>
       <Card className="p-6">
         <p className="text-center text-gray-500">Customer management coming soon...</p>
       </Card>
@@ -386,7 +391,8 @@ const BusinessDashboard: React.FC = () => {
   );
 
   const renderAnalytics = () => (
-    <div className="space-y-6">      <h2 className="text-2xl font-semibold">Analytics</h2>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold">Analytics</h2>
       <Card className="p-6">
         <p className="text-center text-gray-500">Detailed analytics coming soon...</p>
       </Card>
@@ -397,13 +403,15 @@ const BusinessDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">          <h1 className="text-3xl font-bold text-gray-900 mb-2">Business Dashboard</h1>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Business Dashboard</h1>
           <p className="text-gray-600">Manage your loyalty program and track customer interactions</p>
         </div>
 
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">            {[
+          <nav className="-mb-px flex space-x-8">
+            {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'tokens', label: 'Token Management', icon: Coins },
               { id: 'customers', label: 'Customers', icon: Users },
@@ -434,7 +442,8 @@ const BusinessDashboard: React.FC = () => {
         {/* Modals */}
         {showCreateToken && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 p-6">              <h3 className="text-lg font-semibold mb-4">Create New Token</h3>
+            <Card className="max-w-md w-full mx-4 p-6">
+              <h3 className="text-lg font-semibold mb-4">Create New Token</h3>
               <p className="text-gray-600 mb-4">Token creation form coming soon...</p>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={() => setShowCreateToken(false)} className="flex-1">
@@ -450,7 +459,8 @@ const BusinessDashboard: React.FC = () => {
 
         {showDistributeTokens && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 p-6">              <h3 className="text-lg font-semibold mb-4">Distribute Tokens</h3>
+            <Card className="max-w-md w-full mx-4 p-6">
+              <h3 className="text-lg font-semibold mb-4">Distribute Tokens</h3>
               <p className="text-gray-600 mb-4">Token distribution form coming soon...</p>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={() => setShowDistributeTokens(false)} className="flex-1">
