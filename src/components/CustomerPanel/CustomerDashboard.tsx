@@ -11,8 +11,7 @@ import {
   ArrowUpRight,
   Trophy,
   Zap,
-  Coffee,
-  ShoppingCart
+  Coffee
 } from 'lucide-react';
 import Button from '@/components/Shared/Button';
 import Card from '@/components/Shared/Card';
@@ -536,9 +535,7 @@ const CustomerDashboard: React.FC = () => {
       setNotification({
         type: 'info',
         message: 'Processing your reward redemption...'
-      });
-
-      // Create a redemption transaction locally
+      });      // Create a redemption transaction locally with 0.1x reward points
       const redemptionTransaction: Transaction = {
         id: `redeem_${Date.now()}`,
         type: 'redeem',
@@ -550,15 +547,30 @@ const CustomerDashboard: React.FC = () => {
         status: 'completed'
       };
 
-      // Add to transaction history
+      // Add redemption to transaction history
       setCustomerTransactions(prev => [redemptionTransaction, ...prev]);
 
-      // Generate a redemption code for the business
-      const redemptionCode = `RDM-${Date.now().toString().slice(-6)}-${rewardId}`;
+      // Award 0.1x points for redemption (loyalty reward for using the system)
+      const rewardPoints = Math.floor(reward.cost * 0.1);
+      if (rewardPoints > 0) {
+        const rewardPointsTransaction: Transaction = {
+          id: `reward_${Date.now()}`,
+          type: 'earn',
+          amount: rewardPoints,
+          tokenSymbol: requiredTokenSymbol,
+          businessName: reward.businessName,
+          description: `Loyalty reward points (${rewardPoints} ${requiredTokenSymbol} for redemption)`,
+          timestamp: new Date(),
+          status: 'completed'
+        };
+        
+        setCustomerTransactions(prev => [rewardPointsTransaction, ...prev]);
+      }
 
-      setNotification({
+      // Generate a redemption code for the business
+      const redemptionCode = `RDM-${Date.now().toString().slice(-6)}-${rewardId}`;      setNotification({
         type: 'success',
-        message: `🎉 Reward redeemed successfully! Show this code to the business: ${redemptionCode}. Your ${requiredTokenSymbol} balance has been updated.`
+        message: `🎉 Reward redeemed successfully! Show this code to the business: ${redemptionCode}. ${rewardPoints > 0 ? `Earned ${rewardPoints} loyalty points as reward bonus!` : ''} Your ${requiredTokenSymbol} balance has been updated.`
       });
 
       console.log('Reward redemption completed successfully');
@@ -575,8 +587,87 @@ const CustomerDashboard: React.FC = () => {
     } finally {
       setIsProcessingPurchase(false);
       setProcessingStep('');
+    }  };
+
+  // Handle loyalty points payment for items
+  const handleLoyaltyPayment = async (item: CoffeeItem, businessType: 'coffee' | 'cake') => {
+    console.log(`=== STARTING LOYALTY PAYMENT FOR ${businessType.toUpperCase()} ===`);
+    
+    if (!walletAddress) {
+      console.log('Wallet not connected, showing modal');
+      setPendingAction(businessType === 'coffee' ? 'buyCoffee' : 'buyCake');
+      setPendingActionData(item.id);
+      await requireWalletWithModal();
+      return;
+    }
+
+    const requiredTokens = item.price * 10; // 1 XLM = 10 tokens
+    const businessConfig = businessConfigs[businessType];
+    const userBalance = loyaltyPoints[businessConfig.tokenSymbol] || 0;
+
+    if (userBalance < requiredTokens) {
+      setNotification({
+        type: 'error',
+        message: `Insufficient ${businessConfig.tokenSymbol} tokens. You need ${requiredTokens} but only have ${userBalance}.`
+      });
+      return;
+    }
+
+    // Confirm payment
+    const confirmPayment = confirm(
+      `Pay for "${item.name}" using ${requiredTokens} ${businessConfig.tokenSymbol} tokens?\n\nYou currently have ${userBalance} ${businessConfig.tokenSymbol} tokens.`
+    );
+
+    if (!confirmPayment) {
+      return;
+    }
+
+    console.log('Processing loyalty payment:', item);
+    setIsProcessingPurchase(true);
+    setProcessingStep('Processing loyalty payment...');
+
+    try {
+      setNotification({
+        type: 'info',
+        message: 'Processing your loyalty payment...'
+      });
+
+      // Create a loyalty payment transaction
+      const loyaltyPaymentTransaction: Transaction = {
+        id: `loyalty_${Date.now()}`,
+        type: 'redeem',
+        amount: requiredTokens,
+        tokenSymbol: businessConfig.tokenSymbol,
+        businessName: businessConfig.name,
+        description: `Loyalty payment: ${item.name}`,
+        timestamp: new Date(),
+        status: 'completed'
+      };
+
+      // Add to transaction history
+      setCustomerTransactions(prev => [loyaltyPaymentTransaction, ...prev]);
+
+      setNotification({
+        type: 'success',
+        message: `🎉 ${item.name} purchased with loyalty points! Your ${businessConfig.tokenSymbol} balance has been updated.`
+      });
+
+      console.log('Loyalty payment completed successfully');
+
+    } catch (error) {
+      console.error('Loyalty payment failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setNotification({
+        type: 'error',
+        message: `Loyalty payment failed: ${errorMessage}`
+      });
+    } finally {
+      setIsProcessingPurchase(false);
+      setProcessingStep('');
     }
   };
+  
   // Initialize token balances and update when transactions change
   useEffect(() => {
     const tokenBalances = getTokenBalances();
@@ -1703,9 +1794,7 @@ const CustomerDashboard: React.FC = () => {
             <p>• Gateway timeout (504) errors usually resolve themselves - try again later</p>
           </div>
         </div>
-      </Card>
-
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      </Card>      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {coffeeItems.map((coffee) => (
           <Card key={coffee.id} className="overflow-hidden hover:shadow-lg transition-shadow">
             {coffee.image && (
@@ -1721,32 +1810,44 @@ const CustomerDashboard: React.FC = () => {
               
               <div className="flex justify-between items-center mb-4">
                 <div className="text-2xl font-bold text-gray-900">{coffee.price} XLM</div>
-                <div className="flex items-center text-amber-600">
-                  <Trophy className="w-4 h-4 mr-1" />
-                  <span className="text-sm font-medium">+{coffee.loyaltyPoints} COFFEE</span>
+                <div className="text-sm text-gray-600">
+                  Earn loyalty points
                 </div>
-              </div>              <Button 
-                onClick={() => handleCoffeePurchase(coffee)}
-                disabled={isProcessingPurchase}
-                className="w-full"
-              >
-                {isProcessingPurchase ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {processingStep || 'Processing...'}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center">
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Buy Now
-                  </div>
-                )}              </Button>
+              </div>
+
+              {/* Payment Options */}
+              <div className="space-y-2">
+                <Button 
+                  onClick={() => handleCoffeePurchase(coffee)}
+                  disabled={isProcessingPurchase}
+                  className="w-full"
+                >
+                  {isProcessingPurchase ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {processingStep || 'Processing...'}
+                    </div>
+                  ) : (
+                    <>Pay with XLM</>
+                  )}
+                </Button>
+
+                {/* Loyalty Points Payment Option */}
+                {(loyaltyPoints.COFFEE || 0) >= coffee.price * 10 && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleLoyaltyPayment(coffee, 'coffee')}
+                    disabled={isProcessingPurchase}
+                    className="w-full border-amber-500 text-amber-600 hover:bg-amber-50"
+                  >
+                    Pay with {coffee.price * 10} COFFEE tokens
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
         ))}
-      </div>
-
-      {/* Cake Items Section */}
+      </div>      {/* Cake Items Section */}
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-4 text-pink-700">🍰 Stellar Cake House</h3>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1765,27 +1866,40 @@ const CustomerDashboard: React.FC = () => {
                 
                 <div className="flex justify-between items-center mb-4">
                   <div className="text-2xl font-bold text-gray-900">{cake.price} XLM</div>
-                  <div className="flex items-center text-pink-600">
-                    <Trophy className="w-4 h-4 mr-1" />
-                    <span className="text-sm font-medium">+{cake.loyaltyPoints} CAKE</span>
+                  <div className="text-sm text-gray-600">
+                    Earn loyalty points
                   </div>
-                </div>                <Button 
-                  onClick={() => handleCakePurchase(cake)}
-                  disabled={isProcessingPurchase}
-                  className="w-full bg-pink-600 hover:bg-pink-700"
-                >
-                  {isProcessingPurchase ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {processingStep || 'Processing...'}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      Buy Now
-                    </div>
+                </div>
+
+                {/* Payment Options */}
+                <div className="space-y-2">
+                  <Button 
+                    onClick={() => handleCakePurchase(cake)}
+                    disabled={isProcessingPurchase}
+                    className="w-full bg-pink-600 hover:bg-pink-700"
+                  >
+                    {isProcessingPurchase ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {processingStep || 'Processing...'}
+                      </div>
+                    ) : (
+                      <>Pay with XLM</>
+                    )}
+                  </Button>
+
+                  {/* Loyalty Points Payment Option */}
+                  {(loyaltyPoints.CAKE || 0) >= cake.price * 10 && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => handleLoyaltyPayment(cake, 'cake')}
+                      disabled={isProcessingPurchase}
+                      className="w-full border-pink-500 text-pink-600 hover:bg-pink-50"
+                    >
+                      Pay with {cake.price * 10} CAKE tokens
+                    </Button>
                   )}
-                </Button>
+                </div>
               </div>
             </Card>
           ))}
