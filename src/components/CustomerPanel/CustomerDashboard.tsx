@@ -70,14 +70,14 @@ const CustomerDashboard: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [pendingAction, setPendingAction] = useState<'earnTokens' | 'redeemReward' | 'scanQR' | 'buyCoffee' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'earnTokens' | 'redeemReward' | 'scanQR' | 'buyCoffee' | 'buyCake' | null>(null);
   const [pendingActionData, setPendingActionData] = useState<string | null>(null);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
+  const [processingStep, setProcessingStep] = useState<string>('');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
-  } | null>(null);
-  const [tokenBalanceState, setTokenBalanceState] = useState<TokenBalance[]>([]);
+  } | null>(null);  const [tokenBalanceState, setTokenBalanceState] = useState<TokenBalance[]>([]);
   const [businessWalletStatus, setBusinessWalletStatus] = useState<{
     address: string;
     exists: boolean;
@@ -86,6 +86,7 @@ const CustomerDashboard: React.FC = () => {
   } | null>(null);
   const [customerTransactions, setCustomerTransactions] = useState<Transaction[]>([]);
   const [isLoadingCustomerTransactions, setIsLoadingCustomerTransactions] = useState(false);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<Record<string, number>>({});
   const { requireWalletWithModal, address } = useWalletRequired();// Auto-update wallet address and handle pending actions
   useEffect(() => {
     console.log('useEffect triggered - address:', address, 'pendingAction:', pendingAction);
@@ -113,13 +114,21 @@ const CustomerDashboard: React.FC = () => {
           case 'scanQR':
             console.log('Executing pending QR scan');
             setShowQRScanner(true);
-            break;
-          case 'buyCoffee':
+            break;          case 'buyCoffee':
             if (pendingActionData) {
               console.log('Executing pending coffee purchase for:', pendingActionData);
               const coffeeItem = coffeeItems.find(item => item.id === pendingActionData);
               if (coffeeItem) {
                 handleCoffeePurchase(coffeeItem);
+              }
+            }
+            break;
+          case 'buyCake':
+            if (pendingActionData) {
+              console.log('Executing pending cake purchase for:', pendingActionData);
+              const cakeItem = cakeItems.find(item => item.id === pendingActionData);
+              if (cakeItem) {
+                handleCakePurchase(cakeItem);
               }
             }
             break;
@@ -172,7 +181,6 @@ const CustomerDashboard: React.FC = () => {
       });
     }
   };
-
   // Fund business wallet
   const fundBusinessWallet = async () => {
     try {
@@ -196,34 +204,65 @@ const CustomerDashboard: React.FC = () => {
     }
   };
 
-  // Mock data - will come from API in real application
-  const tokenBalances: TokenBalance[] = [
-    {
+  // Business configurations
+  const businessConfigs = {
+    coffee: {
+      walletAddress: 'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK',
+      name: 'Stellar Coffee Co.',
       tokenSymbol: 'COFFEE',
       tokenName: 'Coffee Shop Rewards',
-      balance: 250,
-      businessName: 'Stellar Coffee Co.',
-      earnRate: 1,
-      businessLocation: 'Istanbul, Besiktas'
+      location: 'Istanbul, Besiktas',
+      earnRate: 1
     },
-    {
-      tokenSymbol: 'BOOKS',
-      tokenName: 'Book Store Points',
-      balance: 180,
-      businessName: 'Galaxy Books',
-      earnRate: 2,
-      businessLocation: 'Istanbul, Kadikoy'
-    },
-    {
-      tokenSymbol: 'PIZZA',
-      tokenName: 'Pizza Palace Tokens',
-      balance: 75,
-      businessName: 'Cosmic Pizza',
-      earnRate: 1.5,
-      businessLocation: 'Istanbul, Sisli'
-    },
-  ];
+    cake: {
+      walletAddress: 'GARQZZ4P6U4GQYE2IFMV3TCEIACVXOE4WNRRGJBEWGTM2EYHADTGAAZU',
+      name: 'Stellar Cake House',
+      tokenSymbol: 'CAKE',
+      tokenName: 'Cake House Points',
+      location: 'Istanbul, Taksim',
+      earnRate: 1.5
+    }
+  };
 
+  // Calculate loyalty points from transactions
+  const calculateLoyaltyPointsFromTransactions = (transactions: Transaction[]) => {
+    const points: Record<string, number> = {};
+    
+    transactions.forEach(transaction => {
+      if (transaction.type === 'earn') {
+        const business = Object.values(businessConfigs).find(
+          b => b.tokenSymbol === transaction.tokenSymbol
+        );
+        if (business) {
+          const key = business.tokenSymbol;
+          points[key] = (points[key] || 0) + transaction.amount;
+        }
+      } else if (transaction.type === 'redeem') {
+        const business = Object.values(businessConfigs).find(
+          b => b.tokenSymbol === transaction.tokenSymbol
+        );
+        if (business) {
+          const key = business.tokenSymbol;
+          points[key] = Math.max(0, (points[key] || 0) - transaction.amount);
+        }
+      }
+    });
+    
+    return points;
+  };
+  // Dynamic token balances based on transactions
+  const getTokenBalances = (): TokenBalance[] => {
+    const calculatedPoints = calculateLoyaltyPointsFromTransactions(customerTransactions);
+    
+    return Object.values(businessConfigs).map(business => ({
+      tokenSymbol: business.tokenSymbol,
+      tokenName: business.tokenName,
+      balance: calculatedPoints[business.tokenSymbol] || 0,
+      businessName: business.name,
+      earnRate: business.earnRate,
+      businessLocation: business.location
+    }));
+  };
   const rewardOptions: RewardOption[] = [
     {
       id: '1',
@@ -238,28 +277,39 @@ const CustomerDashboard: React.FC = () => {
     },
     {
       id: '2',
-      title: '10% Discount',
-      description: '10% discount on your next book purchase',
+      title: 'Free Cake Slice',
+      description: 'Delicious cake slice of your choice',
+      cost: 80,
+      category: 'Dessert',
+      businessName: 'Stellar Cake House',
+      isAvailable: true,
+      originalPrice: 35,
+      image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400'
+    },
+    {
+      id: '3',
+      title: '10% Coffee Discount',
+      description: '10% discount on your next coffee purchase',
       cost: 50,
       category: 'Discount',
-      businessName: 'Galaxy Books',
+      businessName: 'Stellar Coffee Co.',
       isAvailable: true,
       discount: 10,
       image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400'
     },
     {
-      id: '3',
-      title: 'Free Pizza Slice',
-      description: 'Free slice with any pizza order',
-      cost: 25,
-      category: 'Food',
-      businessName: 'Cosmic Pizza',
+      id: '4',
+      title: 'Premium Cake Experience',
+      description: 'Special cake varieties with decorations',
+      cost: 150,
+      category: 'Premium',
+      businessName: 'Stellar Cake House',
       isAvailable: true,
-      originalPrice: 15,
-      image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400'
+      originalPrice: 60,
+      image: 'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=400'
     },
     {
-      id: '4',
+      id: '5',
       title: 'Premium Coffee Experience',
       description: 'Special coffee varieties and latte art',
       cost: 200,
@@ -270,7 +320,6 @@ const CustomerDashboard: React.FC = () => {
       image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=400'
     },
   ];
-
   const recentTransactions: Transaction[] = [
     {
       id: '1',
@@ -284,6 +333,16 @@ const CustomerDashboard: React.FC = () => {
     },
     {
       id: '2',
+      type: 'earn',
+      amount: 30,
+      tokenSymbol: 'CAKE',
+      businessName: 'Stellar Cake House',
+      description: 'Cake purchase',
+      timestamp: new Date(Date.now() - 1800000),
+      status: 'completed'
+    },
+    {
+      id: '3',
       type: 'redeem',
       amount: 100,
       tokenSymbol: 'COFFEE',
@@ -293,17 +352,16 @@ const CustomerDashboard: React.FC = () => {
       status: 'completed'
     },
     {
-      id: '3',
+      id: '4',
       type: 'earn',
-      amount: 30,
-      tokenSymbol: 'BOOKS',
-      businessName: 'Galaxy Books',
-      description: 'Book purchase',
+      amount: 25,
+      tokenSymbol: 'CAKE',
+      businessName: 'Stellar Cake House',
+      description: 'Red velvet cake',
       timestamp: new Date(Date.now() - 7200000),
       status: 'completed'
     },
   ];
-
   const coffeeItems: CoffeeItem[] = [
     {
       id: '1',
@@ -339,7 +397,42 @@ const CustomerDashboard: React.FC = () => {
     }
   ];
 
-  const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
+  const cakeItems: CoffeeItem[] = [
+    {
+      id: '5',
+      name: 'Chocolate Cake',
+      price: 40,
+      loyaltyPoints: 30,
+      description: 'Rich and moist chocolate cake',
+      image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400'
+    },
+    {
+      id: '6',
+      name: 'Cheesecake',
+      price: 45,
+      loyaltyPoints: 35,
+      description: 'Creamy New York style cheesecake',
+      image: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=400'
+    },
+    {
+      id: '7',
+      name: 'Red Velvet',
+      price: 35,
+      loyaltyPoints: 25,
+      description: 'Classic red velvet with cream cheese frosting',
+      image: 'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=400'
+    },
+    {
+      id: '8',
+      name: 'Tiramisu',
+      price: 50,
+      loyaltyPoints: 40,
+      description: 'Italian coffee-flavored dessert',
+      image: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400'
+    }
+  ];
+
+  const categories = ['all', 'Beverage', 'Dessert', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
     console.log('handleEarnTokens called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
     // If wallet is already connected, proceed immediately
@@ -406,20 +499,25 @@ const CustomerDashboard: React.FC = () => {
       console.error('Reward redemption failed:', error);
     }
   };
-
-  // Initialize token balances
+  // Initialize token balances and update when transactions change
   useEffect(() => {
+    const tokenBalances = getTokenBalances();
     setTokenBalanceState(tokenBalances);
-  }, []);  // Coffee purchase handler
-  const handleCoffeePurchase = async (coffeeItem: CoffeeItem) => {
-    console.log('=== STARTING COFFEE PURCHASE PROCESS ===');
-    console.log('handleCoffeePurchase called, current walletAddress:', walletAddress);
-    console.log('Coffee item:', coffeeItem);
+    
+    // Update loyalty points state
+    const calculatedPoints = calculateLoyaltyPointsFromTransactions(customerTransactions);
+    setLoyaltyPoints(calculatedPoints);
+  }, [customerTransactions]);  // Generic purchase handler for both coffee and cake
+  const handleItemPurchase = async (item: CoffeeItem, businessType: 'coffee' | 'cake') => {
+    console.log(`=== STARTING ${businessType.toUpperCase()} PURCHASE PROCESS ===`);
+    console.log('handleItemPurchase called, current walletAddress:', walletAddress);
+    console.log('Item:', item);
+    console.log('Business type:', businessType);
     
     if (!walletAddress) {
       console.log('Wallet not connected, showing modal');
-      setPendingAction('buyCoffee');
-      setPendingActionData(coffeeItem.id);
+      setPendingAction(businessType === 'coffee' ? 'buyCoffee' : 'buyCake');
+      setPendingActionData(item.id);
       await requireWalletWithModal();
       return;    }
 
@@ -433,22 +531,34 @@ const CustomerDashboard: React.FC = () => {
         message: freighterInfo.message
       });
       return;
-    }setIsProcessingPurchase(true);
+    }    setIsProcessingPurchase(true);
+    setProcessingStep('Checking network...');
     
     try {
-      console.log('=== STEP 1: Getting business wallet ===');
-      console.log('About to call StellarService.getBusinessWalletAddress()...');
-      
-      // Get a valid business wallet address
-      let businessWallet;
+      // Check network connectivity first
+      console.log('=== STEP 0: Network connectivity check ===');
       try {
-        businessWallet = await StellarService.getBusinessWalletAddress();
-        console.log('✓ Business wallet obtained successfully:', businessWallet);
-      } catch (businessWalletError) {
-        console.error('❌ Business wallet error:', businessWalletError);
-        throw new Error(`Business wallet error: ${(businessWalletError as Error).message}`);
+        const networkCheck = await fetch('https://horizon-testnet.stellar.org/', {
+          method: 'GET',
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        });
+        
+        if (!networkCheck.ok) {
+          throw new Error('Stellar network unavailable');
+        }
+        
+        console.log('✓ Network connectivity confirmed');
+      } catch (networkError) {
+        console.error('❌ Network check failed:', networkError);
+        throw new Error('Network connectivity issue. Please check your internet connection and try again.');
       }
+        console.log('=== STEP 1: Getting business wallet ===');
+      setProcessingStep('Getting business wallet...');
       
+      const businessConfig = businessConfigs[businessType];
+      const businessWallet = businessConfig.walletAddress;
+      
+      console.log('✓ Business wallet obtained:', businessWallet);
       console.log('Customer wallet:', walletAddress);
       console.log('Business wallet:', businessWallet);
       
@@ -457,23 +567,22 @@ const CustomerDashboard: React.FC = () => {
         type: 'info',
         message: 'Creating transaction... Please wait.'
       });
-      
-      console.log('=== STEP 2: Creating transaction ===');
+        console.log('=== STEP 2: Creating transaction ===');
+      setProcessingStep('Creating transaction...');
       console.log('About to call purchaseCoffeeAndEarnTokens with:');
       console.log('- Customer:', walletAddress);
       console.log('- Business:', businessWallet);
-      console.log('- Price:', coffeeItem.price);
-      console.log('- Points:', coffeeItem.loyaltyPoints);
-        // Create the transaction
-      let result;
+      console.log('- Price:', item.price);
+      console.log('- Points:', item.loyaltyPoints);      // Create the transaction with improved timeout handling
+      let result: any;
       try {
-        console.log('⏱️ Setting 30-second timeout for transaction creation...');
+        console.log('⏱️ Setting 45-second timeout for transaction creation...');
         
         // Create a timeout promise
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            reject(new Error('Transaction creation timed out after 30 seconds'));
-          }, 30000);
+            reject(new Error('Transaction creation timed out after 45 seconds. This may be due to network congestion.'));
+          }, 45000); // Increased to 45 seconds
         });
         
         // Race between transaction creation and timeout
@@ -481,8 +590,8 @@ const CustomerDashboard: React.FC = () => {
           StellarService.purchaseCoffeeAndEarnTokens(
             walletAddress,
             businessWallet,
-            coffeeItem.price,
-            coffeeItem.loyaltyPoints
+            item.price,
+            item.loyaltyPoints
           ),
           timeoutPromise
         ]) as any;
@@ -490,6 +599,17 @@ const CustomerDashboard: React.FC = () => {
         console.log('✓ Transaction creation completed. Result:', result);
       } catch (transactionError) {
         console.error('❌ Transaction creation error:', transactionError);
+        
+        // Check if it's a timeout error
+        if ((transactionError as Error).message.includes('timeout') || (transactionError as Error).message.includes('timed out')) {
+          throw new Error('Transaction creation timed out. The Stellar network may be experiencing high traffic. Please try again in a few moments.');
+        }
+        
+        // Check if it's a 504 Gateway Timeout
+        if ((transactionError as Error).message.includes('504')) {
+          throw new Error('Gateway timeout occurred. The Stellar network is temporarily overloaded. Please wait a moment and try again.');
+        }
+        
         throw new Error(`Transaction creation failed: ${(transactionError as Error).message}`);
       }
 
@@ -499,25 +619,66 @@ const CustomerDashboard: React.FC = () => {
 
       if (!result.transaction) {
         throw new Error('No transaction object returned');
-      }
-
-      console.log('=== STEP 3: Signing and submitting transaction ===');
+      }      console.log('=== STEP 3: Signing and submitting transaction ===');
+      setProcessingStep('Waiting for wallet signature...');
       
       // Update notification for signing
       setNotification({
         type: 'info',
         message: 'Transaction created. Please sign with your Freighter wallet...'
       });
-      
-      // Sign and submit the transaction
+        // Sign and submit the transaction with retry mechanism
       console.log('About to call signAndSubmitTransaction with:');
       console.log('- Transaction:', result.transaction);
       console.log('- Wallet address:', walletAddress);
       
-      const submitResult = await StellarService.signAndSubmitTransaction(
-        result.transaction,
-        walletAddress
-      );
+      let submitResult: any;
+      const maxRetries = 3;
+      let currentAttempt = 1;
+      
+      while (currentAttempt <= maxRetries) {        try {
+          console.log(`Transaction submission attempt ${currentAttempt}/${maxRetries}`);
+          setProcessingStep(`Submitting transaction (attempt ${currentAttempt}/${maxRetries})...`);
+          
+          // Create timeout for transaction submission
+          const submitPromise = StellarService.signAndSubmitTransaction(
+            result.transaction,
+            walletAddress
+          );
+          
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error(`Transaction submission timeout after 60 seconds (attempt ${currentAttempt})`));
+            }, 60000); // 60 second timeout
+          });
+          
+          submitResult = await Promise.race([submitPromise, timeoutPromise]) as any;
+          
+          // If we get here, submission was successful
+          console.log(`Transaction submission successful on attempt ${currentAttempt}`);
+          break;
+          
+        } catch (submissionError) {
+          console.error(`Transaction submission failed on attempt ${currentAttempt}:`, submissionError);
+          
+          if (currentAttempt === maxRetries) {
+            // Last attempt failed, throw the error
+            throw new Error(`Transaction submission failed after ${maxRetries} attempts: ${(submissionError as Error).message}`);
+          }
+          
+          // Wait before retrying (exponential backoff)
+          const waitTime = Math.pow(2, currentAttempt) * 1000; // 2s, 4s, 8s
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          
+          setNotification({
+            type: 'info',
+            message: `Transaction submission failed (attempt ${currentAttempt}/${maxRetries}). Retrying in ${waitTime/1000} seconds...`
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          currentAttempt++;
+        }
+      }
       
       console.log('=== STEP 4: Processing submission result ===');
       console.log('Transaction submission result:', submitResult);
@@ -525,19 +686,24 @@ const CustomerDashboard: React.FC = () => {
       if (submitResult.success) {
         console.log('=== SUCCESS: Transaction completed ===');
         
-        // Update local token balance immediately for better UX
-        setTokenBalanceState(prev => 
-          prev.map(token => 
-            token.tokenSymbol === 'COFFEE' 
-              ? { ...token, balance: token.balance + coffeeItem.loyaltyPoints }
-              : token
-          )
-        );
+        // Add transaction to local state immediately for better UX
+        const newTransaction: Transaction = {
+          id: `local_${Date.now()}`,
+          type: 'earn',
+          amount: item.loyaltyPoints,
+          tokenSymbol: businessConfig.tokenSymbol,
+          businessName: businessConfig.name,
+          description: `${item.name} purchase`,
+          timestamp: new Date(),
+          status: 'completed'
+        };
+        
+        setCustomerTransactions(prev => [newTransaction, ...prev]);
 
         // Show success notification with transaction link
         setNotification({
           type: 'success',
-          message: `Coffee purchased successfully! Earned ${coffeeItem.loyaltyPoints} COFFEE tokens. Transaction hash: ${submitResult.transactionHash}`
+          message: `${item.name} purchased successfully! Earned ${item.loyaltyPoints} ${businessConfig.tokenSymbol} tokens. Transaction hash: ${submitResult.transactionHash}`
         });
             
         console.log('Transaction submitted successfully. Hash:', submitResult.transactionHash);
@@ -582,22 +748,48 @@ const CustomerDashboard: React.FC = () => {
           message: `Transaction failed: ${submitResult.message}`
         });
       }
-      
-    } catch (error) {
-      console.error('=== ERROR: Coffee purchase failed ===');
+        } catch (error) {
+      console.error(`=== ERROR: ${businessType} purchase failed ===`);
       console.error('Error details:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       console.error('Error message:', errorMessage);
       
+      // Provide user-friendly error messages based on error type
+      let userMessage = errorMessage;
+      
+      if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+        userMessage = `Transaction timed out. The Stellar network may be busy. Please try again in a few moments.`;
+      } else if (errorMessage.includes('504') || errorMessage.includes('Gateway')) {
+        userMessage = `Network gateway timeout. The Stellar servers are temporarily overloaded. Please wait 30 seconds and try again.`;
+      } else if (errorMessage.includes('Network connectivity')) {
+        userMessage = `Network connection issue. Please check your internet connection and try again.`;
+      } else if (errorMessage.includes('insufficient')) {
+        userMessage = `Insufficient funds. Please ensure your wallet has enough XLM for the transaction.`;
+      } else if (errorMessage.includes('User declined')) {
+        userMessage = `Transaction was cancelled. Please try again if you want to complete the purchase.`;
+      } else if (errorMessage.includes('not found') || errorMessage.includes('account')) {
+        userMessage = `Account not found. Please ensure your wallet is properly funded and try again.`;
+      }
+      
       setNotification({
         type: 'error',
-        message: `Coffee purchase failed: ${errorMessage}`
-      });
-    } finally {
-      console.log('=== COFFEE PURCHASE PROCESS COMPLETED ===');
+        message: `${item.name} purchase failed: ${userMessage}`
+      });    } finally {
+      console.log(`=== ${businessType.toUpperCase()} PURCHASE PROCESS COMPLETED ===`);
       setIsProcessingPurchase(false);
+      setProcessingStep('');
     }
+  };
+
+  // Coffee purchase handler (backward compatibility)
+  const handleCoffeePurchase = async (coffeeItem: CoffeeItem) => {
+    await handleItemPurchase(coffeeItem, 'coffee');
+  };
+
+  // Cake purchase handler
+  const handleCakePurchase = async (cakeItem: CoffeeItem) => {
+    await handleItemPurchase(cakeItem, 'cake');
   };
   // Refresh customer transaction history
   const refreshCustomerTransactionHistory = async () => {
@@ -657,7 +849,7 @@ const CustomerDashboard: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const totalTokenValue = tokenBalanceState.reduce((sum, token) => sum + token.balance, 0);
+  const totalTokenValue = Object.values(loyaltyPoints).reduce((sum, points) => sum + points, 0);
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -707,11 +899,14 @@ const CustomerDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Button 
           onClick={() => setSelectedTab('shop')}
-          className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-amber-500 to-orange-600"
+          className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-amber-500 to-pink-600"
         >
-          <Coffee className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Coffee Shop</div>
-          <div className="text-sm opacity-90 font-normal">Buy coffee, earn tokens</div>
+          <div className="flex items-center mb-2">
+            <Coffee className="w-5 h-5 mr-1" />
+            <span className="text-lg">🍰</span>
+          </div>
+          <div className="font-semibold">Coffee & Cake Shop</div>
+          <div className="text-sm opacity-90 font-normal">Buy items, earn loyalty tokens</div>
         </Button>
 
         <Button 
@@ -1010,10 +1205,10 @@ const CustomerDashboard: React.FC = () => {
           onConnect={setWalletAddress} 
         />
       </div>      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">☕ Coffee Shop</h2>
+        <h2 className="text-2xl font-semibold">☕🍰 Coffee & Cake Shop</h2>
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-600">
-            Earn <span className="font-semibold text-amber-600">COFFEE tokens</span> with every purchase!
+            Earn <span className="font-semibold text-amber-600">COFFEE</span> & <span className="font-semibold text-pink-600">CAKE</span> tokens with every purchase!
           </div>
           <Button 
             variant="outline" 
@@ -1111,9 +1306,24 @@ const CustomerDashboard: React.FC = () => {
                 Manual Fund
               </a>
             </div>
-          </div>
-        </Card>
+          </div>        </Card>
       )}
+
+      {/* Helpful Tips for Slow Transactions */}
+      <Card className="bg-blue-50 border-blue-200">
+        <div className="p-4">
+          <div className="flex items-center mb-2">
+            <span className="text-blue-600 mr-2">💡</span>
+            <h4 className="font-medium text-blue-800">Transaction Tips</h4>
+          </div>
+          <div className="text-sm text-blue-700 space-y-1">
+            <p>• If transactions are slow, the Stellar network may be experiencing high traffic</p>
+            <p>• Wait 30-60 seconds between retry attempts</p>
+            <p>• Check your internet connection if you see timeout errors</p>
+            <p>• Gateway timeout (504) errors usually resolve themselves - try again later</p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {coffeeItems.map((coffee) => (
@@ -1135,9 +1345,7 @@ const CustomerDashboard: React.FC = () => {
                   <Trophy className="w-4 h-4 mr-1" />
                   <span className="text-sm font-medium">+{coffee.loyaltyPoints} COFFEE</span>
                 </div>
-              </div>
-
-              <Button 
+              </div>              <Button 
                 onClick={() => handleCoffeePurchase(coffee)}
                 disabled={isProcessingPurchase}
                 className="w-full"
@@ -1145,18 +1353,63 @@ const CustomerDashboard: React.FC = () => {
                 {isProcessingPurchase ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Processing...
+                    {processingStep || 'Processing...'}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center">
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Buy Now
                   </div>
-                )}
-              </Button>
+                )}              </Button>
             </div>
           </Card>
         ))}
+      </div>
+
+      {/* Cake Items Section */}
+      <div className="mt-8">
+        <h3 className="text-xl font-semibold mb-4 text-pink-700">🍰 Stellar Cake House</h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {cakeItems.map((cake) => (
+            <Card key={cake.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              {cake.image && (
+                <img 
+                  src={cake.image} 
+                  alt={cake.name}
+                  className="w-full h-48 object-cover"
+                />
+              )}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-2">{cake.name}</h3>
+                <p className="text-gray-600 text-sm mb-4">{cake.description}</p>
+                
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-2xl font-bold text-gray-900">{cake.price} XLM</div>
+                  <div className="flex items-center text-pink-600">
+                    <Trophy className="w-4 h-4 mr-1" />
+                    <span className="text-sm font-medium">+{cake.loyaltyPoints} CAKE</span>
+                  </div>
+                </div>                <Button 
+                  onClick={() => handleCakePurchase(cake)}
+                  disabled={isProcessingPurchase}
+                  className="w-full bg-pink-600 hover:bg-pink-700"
+                >
+                  {isProcessingPurchase ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {processingStep || 'Processing...'}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Buy Now
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Coffee Shop Info */}
@@ -1177,25 +1430,54 @@ const CustomerDashboard: React.FC = () => {
             <div className="flex items-center text-amber-800">
               <Zap className="w-4 h-4 mr-2" />
               Instant loyalty rewards
-            </div>
-            <div className="flex items-center text-amber-800">
+            </div>            <div className="flex items-center text-amber-800">
               <Trophy className="w-4 h-4 mr-2" />
               1 XLM = 1 COFFEE token
             </div>          </div>
         </div>
-      </Card>      {/* Debug Panel - Development Only */}
+      </Card>
+
+      {/* Cake House Info */}
+      <Card className="bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200">
+        <div className="p-6">
+          <div className="flex items-center mb-4">
+            <span className="text-3xl mr-3">🍰</span>
+            <div>
+              <h3 className="text-xl font-semibold text-pink-900">Stellar Cake House</h3>
+              <p className="text-pink-700">Delicious cakes made with love on the blockchain</p>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-center text-pink-800">
+              <MapPin className="w-4 h-4 mr-2" />
+              Istanbul, Taksim
+            </div>
+            <div className="flex items-center text-pink-800">
+              <Zap className="w-4 h-4 mr-2" />
+              Instant loyalty rewards
+            </div>
+            <div className="flex items-center text-pink-800">
+              <Trophy className="w-4 h-4 mr-2" />
+              1.5x CAKE tokens per XLM
+            </div>
+          </div>
+        </div>
+      </Card>{/* Debug Panel - Development Only */}
       {walletAddress && (
         <Card className="bg-gray-50 border-gray-200">
           <div className="p-4">
-            <h4 className="font-medium text-gray-700 mb-3">🔧 Debug Information</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <h4 className="font-medium text-gray-700 mb-3">🔧 Debug Information</h4>            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-600">Customer Wallet:</span>
                 <p className="font-mono text-xs text-gray-800 break-all">{walletAddress}</p>
               </div>
               <div>
-                <span className="font-medium text-gray-600">Business Wallet:</span>
+                <span className="font-medium text-gray-600">Coffee Business:</span>
                 <p className="font-mono text-xs text-gray-800">GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Cake Business:</span>
+                <p className="font-mono text-xs text-gray-800">GARQZZ4P6U4GQYE2IFMV3TCEIACVXOE4WNRRGJBEWGTM2EYHADTGAAZU</p>
               </div>
               <div>
                 <span className="font-medium text-gray-600">Network:</span>
@@ -1206,11 +1488,54 @@ const CustomerDashboard: React.FC = () => {
                   {StellarService.isFreighterInstalled() ? 'Available' : 'Not Available'}
                 </p>
               </div>
+              <div>
+                <span className="font-medium text-gray-600">Loyalty Points:</span>
+                <p className="text-gray-800">
+                  COFFEE: {loyaltyPoints.COFFEE || 0}, CAKE: {loyaltyPoints.CAKE || 0}
+                </p>
+              </div>
             </div>
             
             {/* Debug Actions */}
             <div className="mt-4 pt-3 border-t border-gray-200">
-              <div className="flex flex-wrap gap-2 mb-3">                <button 
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Testing network connectivity...' });
+                      
+                      const startTime = Date.now();
+                      const response = await fetch('https://horizon-testnet.stellar.org/', {
+                        method: 'GET',
+                        signal: AbortSignal.timeout(10000)
+                      });
+                      const endTime = Date.now();
+                      const responseTime = endTime - startTime;
+                      
+                      if (response.ok) {
+                        setNotification({ 
+                          type: 'success', 
+                          message: `Network OK - Response time: ${responseTime}ms` 
+                        });
+                      } else {
+                        setNotification({ 
+                          type: 'error', 
+                          message: `Network issue - Status: ${response.status}` 
+                        });
+                      }
+                    } catch (error) {
+                      setNotification({ 
+                        type: 'error', 
+                        message: `Network test failed: ${(error as Error).message}` 
+                      });
+                    }
+                  }}
+                  className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
+                >
+                  Test Network
+                </button>
+
+                <button 
                   onClick={async () => {
                     try {
                       setNotification({ type: 'info', message: 'Testing detailed Freighter connection...' });
