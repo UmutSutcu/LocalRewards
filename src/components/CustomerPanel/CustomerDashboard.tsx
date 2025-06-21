@@ -790,7 +790,68 @@ const CustomerDashboard: React.FC = () => {
   // Cake purchase handler
   const handleCakePurchase = async (cakeItem: CoffeeItem) => {
     await handleItemPurchase(cakeItem, 'cake');
+  };  // Helper function to detect business from transaction
+  const detectBusinessFromTransaction = (tx: any, walletAddress: string) => {
+    let businessType = 'external';
+    let tokenSymbol = 'XLM';
+    let businessName = 'External';
+    let loyaltyPoints = 0;
+    
+    // Check if transaction is from our wallet to a business wallet
+    const isOutgoingPayment = tx.from === walletAddress || tx.source_account === walletAddress;
+    
+    if (isOutgoingPayment) {
+      const coffeeWallet = businessConfigs.coffee.walletAddress;
+      const cakeWallet = businessConfigs.cake.walletAddress;
+      
+      // Check destination address (multiple possible fields)
+      const destination = tx.to || tx.destination || tx.account || tx.destination_account;
+      
+      if (destination === coffeeWallet) {
+        businessType = 'coffee';
+        tokenSymbol = 'COFFEE';
+        businessName = businessConfigs.coffee.name;
+        loyaltyPoints = Math.floor((tx.amount || 0) * businessConfigs.coffee.earnRate);
+      } else if (destination === cakeWallet) {
+        businessType = 'cake';
+        tokenSymbol = 'CAKE';
+        businessName = businessConfigs.cake.name;
+        loyaltyPoints = Math.floor((tx.amount || 0) * businessConfigs.cake.earnRate);
+      }
+      
+      // Enhanced fallback: Check memo for business hints
+      if (businessType === 'external' && tx.memo) {
+        const memo = tx.memo.toLowerCase();
+        
+        // Coffee-related keywords
+        const coffeeKeywords = ['coffee', 'espresso', 'latte', 'cappuccino', 'americano', 'mocha', 'macchiato', 'brew', 'cafee', 'stellar coffee'];
+        if (coffeeKeywords.some(keyword => memo.includes(keyword))) {
+          businessType = 'coffee';
+          tokenSymbol = 'COFFEE';
+          businessName = businessConfigs.coffee.name;
+          loyaltyPoints = Math.floor((tx.amount || 0) * businessConfigs.coffee.earnRate);
+        }
+        
+        // Cake-related keywords
+        const cakeKeywords = ['cake', 'chocolate', 'cheesecake', 'tiramisu', 'velvet', 'bakery', 'dessert', 'pastry', 'stellar cake'];
+        if (cakeKeywords.some(keyword => memo.includes(keyword))) {
+          businessType = 'cake';
+          tokenSymbol = 'CAKE';
+          businessName = businessConfigs.cake.name;
+          loyaltyPoints = Math.floor((tx.amount || 0) * businessConfigs.cake.earnRate);
+        }
+      }
+    }
+    
+    return {
+      businessType,
+      tokenSymbol,
+      businessName,
+      loyaltyPoints,
+      isBusinessTransaction: businessType !== 'external'
+    };
   };
+
   // Refresh customer transaction history
   const refreshCustomerTransactionHistory = async () => {
     if (walletAddress) {
@@ -799,25 +860,47 @@ const CustomerDashboard: React.FC = () => {
       try {
         const history = await StellarService.getTransactionHistory(walletAddress, 15);
         console.log('Received transaction history:', history);
-        
-        // Convert Stellar transactions to our Transaction format
-        const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => ({
-          id: tx.id || `tx_${index}`,
-          type: tx.type === 'sent' ? 'earn' : 'transfer',
-          amount: tx.amount || 0,
-          tokenSymbol: tx.asset || 'XLM',
-          businessName: tx.type === 'sent' ? 'Stellar Coffee Co.' : 'External',
-          description: tx.memo || `${tx.asset || 'XLM'} transaction`,
-          timestamp: tx.timestamp || new Date(),
-          status: 'completed' as const
-        }));
+          // Convert Stellar transactions to our Transaction format
+        const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => {
+          // Use helper function to detect business
+          const businessInfo = detectBusinessFromTransaction(tx, walletAddress);
+          
+          let description = '';
+          if (businessInfo.isBusinessTransaction) {
+            // Create a descriptive message for business transactions
+            const xlmAmount = tx.amount || 0;
+            description = `Purchase (${xlmAmount} XLM → ${businessInfo.loyaltyPoints} ${businessInfo.tokenSymbol})`;
+            
+            // Add item details if available in memo
+            if (tx.memo && !tx.memo.toLowerCase().includes('purchase')) {
+              description = `${tx.memo} (${xlmAmount} XLM → ${businessInfo.loyaltyPoints} ${businessInfo.tokenSymbol})`;
+            }
+          } else {
+            description = tx.memo || `${tx.asset || 'XLM'} transaction`;
+          }
+          
+          return {
+            id: tx.id || `tx_${index}`,
+            type: businessInfo.isBusinessTransaction ? 'earn' : 'transfer',
+            amount: businessInfo.isBusinessTransaction ? businessInfo.loyaltyPoints : (tx.amount || 0),
+            tokenSymbol: businessInfo.tokenSymbol,
+            businessName: businessInfo.businessName,
+            description: description,
+            timestamp: tx.timestamp || new Date(),
+            status: 'completed' as const
+          };
+        });
 
-        console.log('Converted transactions:', convertedTransactions);
+        console.log('Converted transactions with business detection:', convertedTransactions);
         setCustomerTransactions(convertedTransactions);
+        
+        // Calculate and display loyalty points summary
+        const loyaltyPointsSummary = calculateLoyaltyPointsFromTransactions(convertedTransactions);
+        console.log('Calculated loyalty points:', loyaltyPointsSummary);
         
         setNotification({
           type: 'info',
-          message: `Transaction history updated. Found ${convertedTransactions.length} transactions.`
+          message: `Transaction history updated. Found ${convertedTransactions.length} transactions. Loyalty: ${loyaltyPointsSummary.COFFEE || 0} COFFEE, ${loyaltyPointsSummary.CAKE || 0} CAKE tokens.`
         });
       } catch (error) {
         console.error('Failed to refresh transaction history:', error);
@@ -1487,11 +1570,17 @@ const CustomerDashboard: React.FC = () => {
                 <span className="font-medium text-gray-600">Freighter Status:</span>                <p className={`font-medium ${StellarService.isFreighterInstalled() ? 'text-green-600' : 'text-red-600'}`}>
                   {StellarService.isFreighterInstalled() ? 'Available' : 'Not Available'}
                 </p>
-              </div>
-              <div>
+              </div>              <div>
                 <span className="font-medium text-gray-600">Loyalty Points:</span>
                 <p className="text-gray-800">
                   COFFEE: {loyaltyPoints.COFFEE || 0}, CAKE: {loyaltyPoints.CAKE || 0}
+                </p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Business Detection:</span>
+                <p className="text-gray-800">
+                  {customerTransactions.filter(tx => tx.tokenSymbol === 'COFFEE').length} coffee transactions, 
+                  {customerTransactions.filter(tx => tx.tokenSymbol === 'CAKE').length} cake transactions
                 </p>
               </div>
             </div>
@@ -1531,11 +1620,63 @@ const CustomerDashboard: React.FC = () => {
                     }
                   }}
                   className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
-                >
-                  Test Network
+                >                  Test Network
                 </button>
 
                 <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Testing business detection...' });
+                      
+                      // Test with mock transactions
+                      const mockTransactions = [
+                        {
+                          id: 'test1',
+                          to: businessConfigs.coffee.walletAddress,
+                          amount: 25,
+                          memo: 'Cappuccino purchase',
+                          timestamp: new Date()
+                        },
+                        {
+                          id: 'test2',
+                          to: businessConfigs.cake.walletAddress,
+                          amount: 40,
+                          memo: 'Chocolate cake purchase',
+                          timestamp: new Date()
+                        }
+                      ];
+                      
+                      let detectedBusinesses = 0;
+                      let totalLoyalty = { COFFEE: 0, CAKE: 0 };
+                      
+                      mockTransactions.forEach(tx => {
+                        if (tx.to === businessConfigs.coffee.walletAddress) {
+                          detectedBusinesses++;
+                          totalLoyalty.COFFEE += tx.amount;
+                        } else if (tx.to === businessConfigs.cake.walletAddress) {
+                          detectedBusinesses++;
+                          totalLoyalty.CAKE += Math.floor(tx.amount * businessConfigs.cake.earnRate);
+                        }
+                      });
+                      
+                      setNotification({ 
+                        type: 'success', 
+                        message: `Business detection test: ${detectedBusinesses} businesses detected. Loyalty: ${totalLoyalty.COFFEE} COFFEE, ${totalLoyalty.CAKE} CAKE` 
+                      });
+                      
+                    } catch (error) {
+                      setNotification({ 
+                        type: 'error', 
+                        message: `Business detection test failed: ${(error as Error).message}` 
+                      });
+                    }
+                  }}
+                  className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200"
+                >
+                  Test Business Detection
+                </button>
+
+                <button
                   onClick={async () => {
                     try {
                       setNotification({ type: 'info', message: 'Testing detailed Freighter connection...' });
