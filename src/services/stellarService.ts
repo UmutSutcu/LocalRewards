@@ -1,4 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
+import freighterApi from '@stellar/freighter-api';
 
 // Extract needed classes from StellarSdk
 const { 
@@ -6,7 +7,8 @@ const {
   TransactionBuilder, 
   Operation, 
   Asset, 
-  Memo
+  Memo,
+  BASE_FEE
 } = StellarSdk;
 
 // Types for Stellar API responses
@@ -65,23 +67,42 @@ class StellarService {
    * Get a funded business wallet address for demo purposes
    */
   static async getBusinessWalletAddress(): Promise<string> {
+    console.log('🔍 getBusinessWalletAddress called');
+    
     // Use the specific business wallet address provided by user
     const BUSINESS_WALLET = 'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK';
+    console.log('🔍 Checking business wallet:', BUSINESS_WALLET);
     
     try {
+      console.log('🔍 About to call server.loadAccount...');
+      
       // Check if the account exists and is funded
-      await server.loadAccount(BUSINESS_WALLET);
-      console.log('Using business wallet:', BUSINESS_WALLET);
+      const account = await server.loadAccount(BUSINESS_WALLET);
+      
+      console.log('✅ Business wallet account loaded successfully');
+      console.log('✅ Account ID:', account.accountId());
+      console.log('✅ Account sequence:', account.sequenceNumber());
+      
+      // Check balance
+      const balance = account.balances.find((b: any) => b.asset_type === 'native');
+      console.log('✅ Business wallet XLM balance:', balance?.balance || '0');
+      
+      console.log('✅ Using business wallet:', BUSINESS_WALLET);
       return BUSINESS_WALLET;
     } catch (error) {
-      console.log('Business wallet not found or not funded:', BUSINESS_WALLET);
+      console.error('❌ Business wallet error:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error message:', (error as Error).message);
+      console.error('❌ Error stack:', (error as Error).stack);
+      
+      console.log('❌ Business wallet not found or not funded:', BUSINESS_WALLET);
       // Don't create a new one, just throw an error with instructions
       throw new Error(`Business wallet not found: ${BUSINESS_WALLET}. Please fund this wallet at https://friendbot.stellar.org/?addr=${BUSINESS_WALLET}`);
     }
   }
 
   /**
-   * Get account balance
+   * Get account balance (following the example pattern)
    */
   static async getAccountBalance(publicKey: string): Promise<string> {
     try {
@@ -89,18 +110,19 @@ class StellarService {
       const balance = account.balances.find((balance: StellarBalance) => balance.asset_type === 'native');
       return balance ? balance.balance : '0';
     } catch (error) {
-      console.error('Hesap bakiyesi alınamadı:', error);
+      console.error('❌ Hesap bakiyesi alınamadı:', error);
       return '0';
     }
   }
 
   /**
-   * Check if account exists
+   * Check if account exists on the network
    */
   static async checkAccountExists(publicKey: string): Promise<boolean> {
     try {
       await server.loadAccount(publicKey);
-      return true;    } catch {
+      return true;
+    } catch (error) {
       return false;
     }
   }
@@ -412,65 +434,111 @@ class StellarService {
       });
   }  /**
    * Simulate coffee purchase and earn loyalty tokens
-   */  static async purchaseCoffeeAndEarnTokens(
+   */
+  static async purchaseCoffeeAndEarnTokens(
     customerPublicKey: string,
     businessPublicKey: string,
     coffeePrice: number,
     loyaltyTokensToEarn: number
   ): Promise<{ success: boolean; message: string; transactionHash?: string; transaction?: any }> {
+    console.log('🚀 purchaseCoffeeAndEarnTokens function called');
+    console.log('🚀 Parameters received:');
+    console.log('   - customerPublicKey:', customerPublicKey);
+    console.log('   - businessPublicKey:', businessPublicKey);
+    console.log('   - coffeePrice:', coffeePrice);
+    console.log('   - loyaltyTokensToEarn:', loyaltyTokensToEarn);
+    
     try {
-      // In a real implementation, this would:
-      // 1. Transfer XLM from customer to business for coffee payment
-      // 2. Mint loyalty tokens to customer
-      // 3. Record the transaction in smart contract      // For demo purposes, we'll create a real testnet transaction with memo
-      console.log(`Processing coffee purchase: ${customerPublicKey} -> ${businessPublicKey}, Price: ${coffeePrice} XLM`);
+      console.log(`🔄 Processing coffee purchase: ${customerPublicKey} -> ${businessPublicKey}, Price: ${coffeePrice} XLM`);
+      
+      // Validate input parameters
+      console.log('🔍 Step 1: Validating input parameters...');
+      if (!customerPublicKey || !businessPublicKey) {
+        throw new Error('Customer and business wallet addresses are required');
+      }
+      
+      if (coffeePrice <= 0) {
+        throw new Error('Coffee price must be greater than 0');
+      }
       
       // Check that customer and business are not the same
       if (customerPublicKey === businessPublicKey) {
         throw new Error('Customer and business wallet addresses cannot be the same. Please use a different customer wallet.');
       }
-      
-      // Validate that both accounts exist on the network
-      try {
-        await server.loadAccount(businessPublicKey);
-      } catch (error) {
+      console.log('✅ Input parameters validated successfully');
+        // 1. Check that both accounts exist on the network using the new helper method
+      console.log('🔍 Step 2: Validating business wallet exists...');
+      const businessExists = await this.checkAccountExists(businessPublicKey);
+      if (!businessExists) {
         throw new Error(`Business wallet account not found on network: ${businessPublicKey}. Please ensure the business wallet is funded on testnet.`);
       }
+      console.log('✅ Business wallet exists on network');
       
-      let customerAccount;
-      try {
-        customerAccount = await server.loadAccount(customerPublicKey);
-      } catch (error) {
+      console.log('🔍 Step 3: Validating customer wallet...');
+      const customerExists = await this.checkAccountExists(customerPublicKey);
+      if (!customerExists) {
         throw new Error(`Customer wallet account not found on network: ${customerPublicKey}. Please ensure your wallet is funded on testnet. You can get testnet XLM from https://friendbot.stellar.org/?addr=${customerPublicKey}`);
       }
+      console.log('✅ Customer wallet exists on network');
+
+      // 2. Check customer balance using the helper method
+      console.log('🔍 Step 4: Checking customer balance...');
+      const customerBalance = await this.getAccountBalance(customerPublicKey);
+      const requiredBalance = coffeePrice + 0.1; // Add 0.1 XLM for transaction fee buffer
       
-      // Create a payment transaction with loyalty memo
+      console.log(`💰 Customer balance: ${customerBalance} XLM`);
+      console.log(`💰 Required balance: ${requiredBalance} XLM (including fees)`);
       
+      if (parseFloat(customerBalance) < requiredBalance) {
+        throw new Error(`Insufficient XLM balance. Required: ${requiredBalance} XLM (including fees), Available: ${customerBalance} XLM. Please fund your wallet at https://friendbot.stellar.org/?addr=${customerPublicKey}`);
+      }
+      console.log('✅ Customer has sufficient balance');
+
+      // 3. Load customer account for transaction building
+      console.log('🔍 Step 5: Loading customer account for transaction...');
+      const customerAccount = await server.loadAccount(customerPublicKey);      // 4. Build transaction following the example pattern
+      console.log('🔍 Step 6: Building payment transaction...');
       const transaction = new TransactionBuilder(customerAccount, {
-        fee: '100000',
+        fee: BASE_FEE,
         networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-      })        .addOperation(Operation.payment({
+      })
+      .addOperation(
+        Operation.payment({
           destination: businessPublicKey,
           asset: Asset.native(),
-          amount: coffeePrice.toString(),
-        }))
-        .addMemo(Memo.text(`Coffee+${loyaltyTokensToEarn}pts`))
-        .setTimeout(30)
-        .build();
+          amount: coffeePrice.toFixed(7), // Ensure proper precision
+        })
+      )
+      .addMemo(
+        // Add loyalty info to memo following the example pattern
+        Memo.text(`COFFEE:${loyaltyTokensToEarn}:LOYALTY`)
+      )
+      .setTimeout(30) // 30 seconds timeout like in the example
+      .build();
 
+      console.log('✅ Transaction created successfully');
+      console.log('📄 Transaction XDR:', transaction.toXDR());
+      
       // Return the transaction for signing
-      // In real app, this would be signed by user's wallet (Freighter, etc.)
-      return {
+      const result = {
         success: true,
-        message: `Coffee purchased! Transaction created. Please sign with your wallet to complete.`,
+        message: `Coffee purchase transaction created. Please sign with your wallet to complete.`,
         transactionHash: transaction.hash().toString('hex'),
         transaction: transaction // Return unsigned transaction
       };
+      
+      console.log('🎉 purchaseCoffeeAndEarnTokens completed successfully');
+      return result;
     } catch (error) {
-      console.error('Coffee purchase error:', error);
+      console.error('❌ Coffee purchase error in purchaseCoffeeAndEarnTokens:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error message:', (error as Error).message);
+      console.error('❌ Error stack:', (error as Error).stack);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        message: 'Coffee purchase failed: ' + (error as Error).message
+        message: 'Coffee purchase failed: ' + errorMessage
       };
     }
   }
@@ -504,96 +572,208 @@ class StellarService {
         message: 'Token redemption failed'
       };
     }
-  }
-  /**
-   * Sign and submit transaction using Freighter wallet
+  }  /**
+   * Modern Freighter transaction signing and submission
    */
   static async signAndSubmitTransaction(
     transaction: any,
     publicKey: string
   ): Promise<{ success: boolean; message: string; transactionHash?: string }> {
     try {
-      // Check if Freighter is available
-      if (!(window as any).freighterApi) {
-        // If Freighter is not available, provide helpful instructions
+      console.log('🔐 === STARTING TRANSACTION SIGNING ===');
+      console.log('🔐 Customer wallet:', publicKey);
+      console.log('🔐 Transaction XDR length:', transaction.toXDR().length);
+
+      // Step 1: Check Freighter status
+      console.log('🔍 Step 1: Checking Freighter status...');
+      const freighterStatus = await this.getFreighterStatus();
+      console.log('🔍 Freighter status:', freighterStatus);
+
+      if (!freighterStatus.isInstalled) {
         return {
           success: false,
-          message: 'Freighter wallet not found. Please install Freighter browser extension from https://freighter.app/ and try again.'
+          message: 'Freighter extension not found. Please install from https://freighter.app/'
         };
       }
 
-      // Get network details
-      const networkPassphrase = STELLAR_CONFIG.networkPassphrase;
-      
-      // Sign transaction with Freighter
-      const signedTransaction = await (window as any).freighterApi.signTransaction(
-        transaction.toXDR(),
-        {
-          network: networkPassphrase,
-          accountToSign: publicKey,
+      if (!freighterStatus.isConnected) {
+        return {
+          success: false,
+          message: 'Freighter not connected. Please connect your wallet first.'
+        };
+      }
+
+      if (freighterStatus.network !== 'TESTNET') {
+        return {
+          success: false,
+          message: `Wrong network. Please switch to Testnet (current: ${freighterStatus.network})`
+        };
+      }
+
+      if (freighterStatus.publicKey !== publicKey) {
+        return {
+          success: false,
+          message: `Wrong account connected. Expected: ${publicKey.slice(0,8)}..., Connected: ${freighterStatus.publicKey?.slice(0,8)}...`
+        };
+      }
+
+      console.log('✅ Freighter validation passed');
+
+      // Step 2: Sign transaction
+      console.log('✍️ Step 2: Signing transaction...');
+      let signedXDR;
+      try {
+        signedXDR = await freighterApi.signTransaction(
+          transaction.toXDR(),
+          {
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+            accountToSign: publicKey,
+          }
+        );
+        console.log('✅ Transaction signed successfully');
+      } catch (signError) {
+        console.error('❌ Signing failed:', signError);
+        const errorMsg = (signError as Error).message;
+        
+        if (errorMsg.includes('User declined') || errorMsg.includes('rejected')) {
+          return { success: false, message: 'Transaction was rejected by user.' };
         }
+        
+        return { success: false, message: `Signing failed: ${errorMsg}` };
+      }
+
+      // Step 3: Build signed transaction
+      console.log('🔨 Step 3: Building signed transaction...');
+      const signedTransaction = StellarSdk.TransactionBuilder.fromXDR(
+        signedXDR,
+        STELLAR_CONFIG.networkPassphrase
       );
 
-      // Submit the signed transaction
-      const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-        signedTransaction,
-        networkPassphrase
-      );
-
-      const result = await server.submitTransaction(signedTx);
+      // Step 4: Submit to network
+      console.log('🚀 Step 4: Submitting to Stellar network...');
+      const result = await server.submitTransaction(signedTransaction);
       
+      console.log('✅ Transaction submitted successfully!');
+      console.log('✅ Hash:', result.hash);
+      console.log('✅ Ledger:', result.ledger);
+
       return {
         success: true,
-        message: 'Transaction submitted successfully!',
+        message: '🎉 Coffee purchase completed successfully!',
         transactionHash: result.hash
       };
+
     } catch (error) {
-      console.error('Transaction signing/submission error:', error);
+      console.error('❌ Transaction failed:', error);
+      const errorMsg = (error as Error).message;
       
-      // Provide more specific error messages
-      const errorMessage = (error as Error).message;
-      if (errorMessage.includes('User rejected')) {
-        return {
-          success: false,
-          message: 'Transaction was rejected by user.'
-        };
-      } else if (errorMessage.includes('insufficient funds')) {
-        return {
-          success: false,
-          message: 'Insufficient funds. Please ensure your wallet has enough XLM for the transaction and fees.'
-        };
-      } else {
-        return {
-          success: false,
-          message: 'Transaction failed: ' + errorMessage
-        };
+      if (errorMsg.includes('insufficient funds')) {
+        return { success: false, message: 'Insufficient XLM balance for transaction and fees.' };
       }
+      
+      if (errorMsg.includes('bad_seq')) {
+        return { success: false, message: 'Transaction sequence error. Please refresh and try again.' };
+      }
+      
+      return { success: false, message: `Transaction failed: ${errorMsg}` };
+    }
+  }/**
+   * Modern Freighter wallet connection management
+   */
+  static async isFreighterConnected(): Promise<boolean> {
+    try {
+      // Use only the official API
+      return await freighterApi.isConnected();
+    } catch (error) {
+      console.warn('Freighter connection check failed:', error);
+      return false;
     }
   }
 
   /**
-   * Check if Freighter wallet is available
+   * Get comprehensive Freighter status
    */
-  static isFreighterAvailable(): boolean {
-    return !!(window as any).freighterApi;
+  static async getFreighterStatus(): Promise<{
+    isInstalled: boolean;
+    isConnected: boolean;
+    publicKey?: string;
+    network?: string;
+    error?: string;
+  }> {
+    try {
+      // Check if connected using official API
+      const isConnected = await freighterApi.isConnected();
+      
+      if (!isConnected) {
+        return {
+          isInstalled: true, // If we can call the API, it's installed
+          isConnected: false
+        };
+      }
+
+      // Get connected wallet details
+      const publicKey = await freighterApi.getPublicKey();
+      const networkDetails = await freighterApi.getNetworkDetails();
+
+      return {
+        isInstalled: true,
+        isConnected: true,
+        publicKey,
+        network: networkDetails.network
+      };
+
+    } catch (error) {
+      // If the API itself fails, extension might not be installed
+      return {
+        isInstalled: false,
+        isConnected: false,
+        error: (error as Error).message
+      };
+    }
   }
 
   /**
-   * Get Freighter connection info and helpful instructions
+   * Get user-friendly Freighter info
    */
-  static getFreighterInfo(): { isAvailable: boolean; message: string } {
-    const isAvailable = this.isFreighterAvailable();
-    
-    if (isAvailable) {
-      return {
-        isAvailable: true,
-        message: 'Freighter wallet is available and ready to use.'
-      };
-    } else {
+  static async getFreighterInfo(): Promise<{ isAvailable: boolean; message: string }> {
+    const status = await this.getFreighterStatus();
+
+    if (!status.isInstalled) {
       return {
         isAvailable: false,
-        message: 'Freighter wallet not found. Please install Freighter browser extension from https://freighter.app/ and refresh the page.'
+        message: 'Freighter extension not found. Please install from https://freighter.app/ and refresh.'
       };
+    }
+
+    if (!status.isConnected) {
+      return {
+        isAvailable: false,
+        message: 'Freighter installed but not connected. Please connect your wallet.'
+      };
+    }
+
+    if (status.network !== 'TESTNET') {
+      return {
+        isAvailable: false,
+        message: `Please switch to Stellar Testnet. Current: ${status.network}`
+      };
+    }
+
+    return {
+      isAvailable: true,
+      message: `Connected to ${status.publicKey?.slice(0, 8)}... on ${status.network}`
+    };
+  }
+
+  /**
+   * Simple sync check for UI components
+   */
+  static isFreighterInstalled(): boolean {
+    try {
+      // Try to access the API - if it exists, extension is installed
+      return typeof freighterApi !== 'undefined';
+    } catch {
+      return false;
     }
   }
   /**
@@ -666,6 +846,70 @@ class StellarService {
         address: BUSINESS_WALLET
       };
     }
+  }
+
+  /**
+   * Get transaction status by hash (following the example pattern)
+   */
+  static async getTransactionStatus(transactionHash: string) {
+    try {
+      const transaction = await server.transactions().transaction(transactionHash).call();
+      return {
+        successful: transaction.successful,
+        fee: transaction.fee_charged,
+        memo: transaction.memo,
+        ledger: transaction.ledger,
+        created_at: transaction.created_at,
+      };
+    } catch (error) {
+      console.error('❌ Transaction status could not be retrieved:', error);
+      return null;
+    }
+  }
+  /**
+   * Comprehensive Freighter debugging
+   */
+  static async debugFreighterState(): Promise<void> {
+    console.log('🔍 === FREIGHTER DEBUG REPORT ===');
+    
+    try {
+      // Test 1: Basic API availability
+      console.log('🔍 Test 1: API Availability');
+      console.log('   - freighterApi object:', typeof freighterApi);
+      console.log('   - isFreighterInstalled():', this.isFreighterInstalled());
+      
+      // Test 2: Connection status
+      console.log('🔍 Test 2: Connection Status');
+      const status = await this.getFreighterStatus();
+      console.log('   - Full status:', status);
+      
+      // Test 3: User-friendly info
+      console.log('🔍 Test 3: User Info');
+      const info = await this.getFreighterInfo();
+      console.log('   - Info:', info);
+      
+      // Test 4: Direct API calls
+      if (status.isConnected) {
+        console.log('🔍 Test 4: Direct API Calls');
+        try {
+          const publicKey = await freighterApi.getPublicKey();
+          console.log('   - Public Key:', publicKey);
+          
+          const network = await freighterApi.getNetworkDetails();
+          console.log('   - Network:', network);
+          
+          const balance = await this.getAccountBalance(publicKey);
+          console.log('   - Balance:', balance, 'XLM');
+        } catch (apiError) {
+          console.log('   - API Error:', apiError);
+        }
+      }
+      
+    } catch (error) {
+      console.log('🔍 Debug Error:', error);
+    }
+    
+    console.log('🔍 === END DEBUG REPORT ===');
   }
 }
 

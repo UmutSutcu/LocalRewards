@@ -130,16 +130,16 @@ const CustomerDashboard: React.FC = () => {
         setPendingActionData(null);
       }
     }  }, [address, pendingAction, pendingActionData]);
-
-  // Auto-clear notifications after 5 seconds
+  // Auto-clear notifications after 10 seconds for success, 15 seconds for errors
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 5000);
+      }, notification.type === 'error' ? 15000 : 10000);
       
       return () => clearTimeout(timer);
-    }  }, [notification]);
+    }
+  }, [notification]);
 
   // Check business wallet status on component mount
   useEffect(() => {
@@ -412,113 +412,190 @@ const CustomerDashboard: React.FC = () => {
     setTokenBalanceState(tokenBalances);
   }, []);  // Coffee purchase handler
   const handleCoffeePurchase = async (coffeeItem: CoffeeItem) => {
+    console.log('=== STARTING COFFEE PURCHASE PROCESS ===');
     console.log('handleCoffeePurchase called, current walletAddress:', walletAddress);
+    console.log('Coffee item:', coffeeItem);
     
     if (!walletAddress) {
       console.log('Wallet not connected, showing modal');
       setPendingAction('buyCoffee');
       setPendingActionData(coffeeItem.id);
       await requireWalletWithModal();
-      return;
-    }
+      return;    }
 
     // Check if Freighter wallet is available
-    const freighterInfo = StellarService.getFreighterInfo();
+    const freighterInfo = await StellarService.getFreighterInfo();
+    console.log('Freighter info:', freighterInfo);
+    
     if (!freighterInfo.isAvailable) {
       setNotification({
         type: 'error',
         message: freighterInfo.message
       });
       return;
-    }    setIsProcessingPurchase(true);
+    }setIsProcessingPurchase(true);
+    
     try {
-      // Get a valid business wallet address
-      const businessWallet = await StellarService.getBusinessWalletAddress();
-      console.log('Business wallet obtained:', businessWallet);
-      console.log('Customer wallet:', walletAddress);
-      console.log('Coffee item:', coffeeItem);
+      console.log('=== STEP 1: Getting business wallet ===');
+      console.log('About to call StellarService.getBusinessWalletAddress()...');
       
-      // Create the transaction
-      const result = await StellarService.purchaseCoffeeAndEarnTokens(
-        walletAddress,
-        businessWallet,
-        coffeeItem.price,
-        coffeeItem.loyaltyPoints
+      // Get a valid business wallet address
+      let businessWallet;
+      try {
+        businessWallet = await StellarService.getBusinessWalletAddress();
+        console.log('✓ Business wallet obtained successfully:', businessWallet);
+      } catch (businessWalletError) {
+        console.error('❌ Business wallet error:', businessWalletError);
+        throw new Error(`Business wallet error: ${(businessWalletError as Error).message}`);
+      }
+      
+      console.log('Customer wallet:', walletAddress);
+      console.log('Business wallet:', businessWallet);
+      
+      // Show initial processing notification
+      setNotification({
+        type: 'info',
+        message: 'Creating transaction... Please wait.'
+      });
+      
+      console.log('=== STEP 2: Creating transaction ===');
+      console.log('About to call purchaseCoffeeAndEarnTokens with:');
+      console.log('- Customer:', walletAddress);
+      console.log('- Business:', businessWallet);
+      console.log('- Price:', coffeeItem.price);
+      console.log('- Points:', coffeeItem.loyaltyPoints);
+        // Create the transaction
+      let result;
+      try {
+        console.log('⏱️ Setting 30-second timeout for transaction creation...');
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Transaction creation timed out after 30 seconds'));
+          }, 30000);
+        });
+        
+        // Race between transaction creation and timeout
+        result = await Promise.race([
+          StellarService.purchaseCoffeeAndEarnTokens(
+            walletAddress,
+            businessWallet,
+            coffeeItem.price,
+            coffeeItem.loyaltyPoints
+          ),
+          timeoutPromise
+        ]) as any;
+        
+        console.log('✓ Transaction creation completed. Result:', result);
+      } catch (transactionError) {
+        console.error('❌ Transaction creation error:', transactionError);
+        throw new Error(`Transaction creation failed: ${(transactionError as Error).message}`);
+      }
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      if (!result.transaction) {
+        throw new Error('No transaction object returned');
+      }
+
+      console.log('=== STEP 3: Signing and submitting transaction ===');
+      
+      // Update notification for signing
+      setNotification({
+        type: 'info',
+        message: 'Transaction created. Please sign with your Freighter wallet...'
+      });
+      
+      // Sign and submit the transaction
+      console.log('About to call signAndSubmitTransaction with:');
+      console.log('- Transaction:', result.transaction);
+      console.log('- Wallet address:', walletAddress);
+      
+      const submitResult = await StellarService.signAndSubmitTransaction(
+        result.transaction,
+        walletAddress
       );
+      
+      console.log('=== STEP 4: Processing submission result ===');
+      console.log('Transaction submission result:', submitResult);
 
-      console.log('Transaction creation result:', result);
+      if (submitResult.success) {
+        console.log('=== SUCCESS: Transaction completed ===');
+        
+        // Update local token balance immediately for better UX
+        setTokenBalanceState(prev => 
+          prev.map(token => 
+            token.tokenSymbol === 'COFFEE' 
+              ? { ...token, balance: token.balance + coffeeItem.loyaltyPoints }
+              : token
+          )
+        );
 
-      if (result.success && result.transaction) {
-        // Sign and submit the transaction
-        const submitResult = await StellarService.signAndSubmitTransaction(
-          result.transaction,
-          walletAddress
-        );        if (submitResult.success) {
-          // Update local token balance
-          setTokenBalanceState(prev => 
-            prev.map(token => 
-              token.tokenSymbol === 'COFFEE' 
-                ? { ...token, balance: token.balance + coffeeItem.loyaltyPoints }
-                : token
-            )
-          );
-            setNotification({
-            type: 'success',
-            message: `Coffee purchased successfully! Earned ${coffeeItem.loyaltyPoints} COFFEE tokens. View transaction: https://testnet.steexp.com/tx/${submitResult.transactionHash}`
-          });
-            console.log('Transaction submitted successfully. Hash:', submitResult.transactionHash);
-          console.log('Waiting for transaction to be processed on the network...');
-          
-          // Refresh transaction history with retry mechanism
-          const refreshWithRetry = async (attempt = 1, maxAttempts = 3) => {
-            console.log(`Attempting to refresh transaction history (attempt ${attempt}/${maxAttempts})`);
+        // Show success notification with transaction link
+        setNotification({
+          type: 'success',
+          message: `Coffee purchased successfully! Earned ${coffeeItem.loyaltyPoints} COFFEE tokens. Transaction hash: ${submitResult.transactionHash}`
+        });
             
-            const initialCount = customerTransactions.length;
+        console.log('Transaction submitted successfully. Hash:', submitResult.transactionHash);
+        console.log('Waiting for transaction to be processed on the network...');
+        
+        // Refresh transaction history with improved retry mechanism
+        const refreshWithRetry = async (attempt = 1, maxAttempts = 5) => {
+          console.log(`Attempting to refresh transaction history (attempt ${attempt}/${maxAttempts})`);
+          
+          try {
             await refreshCustomerTransactionHistory();
             
-            // Wait a bit to see if new transactions appeared
+            // Give some time for the transaction to propagate
             setTimeout(() => {
-              const newCount = customerTransactions.length;
-              console.log(`Transaction count: ${initialCount} -> ${newCount}`);
-              
-              if (newCount <= initialCount && attempt < maxAttempts) {
-                console.log(`No new transactions found, retrying in ${5 * attempt} seconds...`);
-                setTimeout(() => refreshWithRetry(attempt + 1, maxAttempts), 5000 * attempt);
-              } else if (newCount > initialCount) {
-                console.log('New transaction detected in history!');
-                setNotification({
-                  type: 'success',
-                  message: 'Transaction confirmed! Your transaction is now visible in the blockchain.'
-                });
-              } else {
-                console.log('Maximum retry attempts reached. Transaction may take longer to appear.');
-              }
-            }, 1000);
-          };
-          
-          // Start the retry mechanism after 5 seconds
-          setTimeout(() => refreshWithRetry(), 5000);
-          
-        } else {
-          console.error('Transaction submission failed:', submitResult.message);
-          setNotification({
-            type: 'error',
-            message: `Transaction failed: ${submitResult.message}`
-          });
-        }
+              console.log('Transaction should now be visible in blockchain explorers');
+              setNotification({
+                type: 'success',
+                message: `Transaction confirmed! View on explorer: https://testnet.steexp.com/tx/${submitResult.transactionHash}`
+              });
+            }, 3000);
+            
+          } catch (refreshError) {
+            console.error('Failed to refresh transaction history:', refreshError);
+            
+            if (attempt < maxAttempts) {
+              console.log(`Retrying transaction history refresh in ${5 * attempt} seconds...`);
+              setTimeout(() => refreshWithRetry(attempt + 1, maxAttempts), 5000 * attempt);
+            } else {
+              console.log('Maximum retry attempts reached for transaction history refresh');
+            }
+          }
+        };
+        
+        // Start the retry mechanism after 5 seconds
+        setTimeout(() => refreshWithRetry(), 5000);
+        
       } else {
+        console.error('=== ERROR: Transaction submission failed ===');
+        console.error('Error message:', submitResult.message);
         setNotification({
           type: 'error',
-          message: `Failed to create transaction: ${result.message}`
+          message: `Transaction failed: ${submitResult.message}`
         });
       }
+      
     } catch (error) {
+      console.error('=== ERROR: Coffee purchase failed ===');
+      console.error('Error details:', error);
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error message:', errorMessage);
+      
       setNotification({
         type: 'error',
         message: `Coffee purchase failed: ${errorMessage}`
       });
     } finally {
+      console.log('=== COFFEE PURCHASE PROCESS COMPLETED ===');
       setIsProcessingPurchase(false);
     }
   };
@@ -950,7 +1027,7 @@ const CustomerDashboard: React.FC = () => {
       </div>
 
       {/* Freighter Wallet Status */}
-      {!StellarService.isFreighterAvailable() && (
+      {!StellarService.isFreighterInstalled() && (
         <Card className="p-4 bg-yellow-50 border-yellow-200">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -1106,9 +1183,7 @@ const CustomerDashboard: React.FC = () => {
               1 XLM = 1 COFFEE token
             </div>          </div>
         </div>
-      </Card>
-
-      {/* Debug Panel - Development Only */}
+      </Card>      {/* Debug Panel - Development Only */}
       {walletAddress && (
         <Card className="bg-gray-50 border-gray-200">
           <div className="p-4">
@@ -1127,13 +1202,155 @@ const CustomerDashboard: React.FC = () => {
                 <p className="text-gray-800">Stellar Testnet</p>
               </div>
               <div>
-                <span className="font-medium text-gray-600">Freighter Status:</span>
-                <p className={`font-medium ${StellarService.isFreighterAvailable() ? 'text-green-600' : 'text-red-600'}`}>
-                  {StellarService.isFreighterAvailable() ? 'Available' : 'Not Available'}
+                <span className="font-medium text-gray-600">Freighter Status:</span>                <p className={`font-medium ${StellarService.isFreighterInstalled() ? 'text-green-600' : 'text-red-600'}`}>
+                  {StellarService.isFreighterInstalled() ? 'Available' : 'Not Available'}
                 </p>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-gray-200">
+            
+            {/* Debug Actions */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="flex flex-wrap gap-2 mb-3">                <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Testing detailed Freighter connection...' });
+                      
+                      console.log('=== DETAILED FREIGHTER TEST ===');
+                      
+                      // Step 1: Check if Freighter API exists
+                      console.log('Step 1: Checking Freighter API...');
+                      if (!(window as any).freighterApi) {
+                        throw new Error('Freighter API not found');
+                      }
+                      console.log('✓ Freighter API exists');
+                      
+                      // Step 2: Test getPublicKey
+                      console.log('Step 2: Getting public key...');
+                      const connectedKey = await (window as any).freighterApi.getPublicKey();
+                      console.log('✓ Connected key:', connectedKey);
+                      
+                      // Step 3: Test network details
+                      console.log('Step 3: Getting network details...');
+                      const networkDetails = await (window as any).freighterApi.getNetworkDetails();
+                      console.log('✓ Network details:', networkDetails);
+                        // Step 4: Test if we can create a simple transaction
+                      console.log('Step 4: Testing account loading...');
+                      const accountExists = await StellarService.checkAccountExists(connectedKey);
+                      console.log('✓ Account exists:', accountExists);
+                      
+                      setNotification({ 
+                        type: 'success', 
+                        message: `Freighter test successful! Connected: ${connectedKey}, Network: ${networkDetails.network}` 
+                      });
+                      
+                    } catch (error) {
+                      console.error('=== FREIGHTER TEST FAILED ===');
+                      console.error('Error:', error);
+                      setNotification({ 
+                        type: 'error', 
+                        message: `Freighter test failed: ${(error as Error).message}` 
+                      });
+                    }
+                  }}
+                  className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200"
+                >
+                  Detailed Freighter Test
+                </button>
+                
+                <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Testing connection to Freighter...' });
+                      const connectedKey = await (window as any).freighterApi.getPublicKey();
+                      setNotification({ 
+                        type: 'success', 
+                        message: `Freighter connected: ${connectedKey}` 
+                      });
+                    } catch (error) {
+                      setNotification({ 
+                        type: 'error', 
+                        message: `Freighter test failed: ${(error as Error).message}` 
+                      });
+                    }
+                  }}
+                  className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                >
+                  Test Freighter
+                </button>
+                
+                <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Checking account balances...' });
+                      const balance = await StellarService.getAccountBalance(walletAddress);
+                      const businessBalance = await StellarService.getAccountBalance('GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK');
+                      setNotification({ 
+                        type: 'success', 
+                        message: `Customer: ${balance} XLM, Business: ${businessBalance} XLM` 
+                      });
+                    } catch (error) {
+                      setNotification({ 
+                        type: 'error', 
+                        message: `Balance check failed: ${(error as Error).message}` 
+                      });
+                    }
+                  }}
+                  className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                >
+                  Check Balances
+                </button>
+                
+                <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Testing transaction creation...' });
+                      const result = await StellarService.purchaseCoffeeAndEarnTokens(
+                        walletAddress,
+                        'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK',
+                        1, // 1 XLM test transaction
+                        5  // 5 loyalty points
+                      );
+                      setNotification({ 
+                        type: result.success ? 'success' : 'error', 
+                        message: `Transaction test: ${result.message}` 
+                      });
+                    } catch (error) {
+                      setNotification({ 
+                        type: 'error', 
+                        message: `Transaction test failed: ${(error as Error).message}` 
+                      });
+                    }
+                  }}
+                  className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200"
+                >
+                  Test Transaction
+                </button>
+              </div>                <button 
+                  onClick={async () => {
+                    try {
+                      setNotification({ type: 'info', message: 'Running comprehensive Freighter test...' });
+                      
+                      // Run the new debug method
+                      await StellarService.debugFreighterState();
+                      
+                      // Also get user-friendly status
+                      const freighterInfo = await StellarService.getFreighterInfo();
+                      console.log('Freighter Info:', freighterInfo);
+                      
+                      setNotification({ 
+                        type: freighterInfo.isAvailable ? 'success' : 'error', 
+                        message: freighterInfo.message 
+                      });
+                    } catch (error) {
+                      console.error('Freighter test failed:', error);
+                      setNotification({ type: 'error', message: 'Test failed: ' + (error as Error).message });
+                    }
+                  }}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                >
+                  🔍 Test Freighter
+                </button>
+              
               <span className="font-medium text-gray-600">Quick Links:</span>
               <div className="flex flex-wrap gap-2 mt-2">
                 <a 
@@ -1174,9 +1391,7 @@ const CustomerDashboard: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Panel</h1>
           <p className="text-gray-600">Manage your tokens, discover rewards and support local businesses</p>
-        </div>
-
-        {/* Notification */}
+        </div>        {/* Notification */}
         {notification && (
           <div className={`mb-6 p-4 rounded-lg border-l-4 ${
             notification.type === 'success' 
@@ -1186,10 +1401,35 @@ const CustomerDashboard: React.FC = () => {
               : 'bg-blue-50 border-blue-400 text-blue-700'
           }`}>
             <div className="flex justify-between items-start">
-              <p className="text-sm">{notification.message}</p>
+              <div className="flex-1">
+                <div className="flex items-center mb-1">
+                  {notification.type === 'success' && <span className="mr-2">✅</span>}
+                  {notification.type === 'error' && <span className="mr-2">❌</span>}
+                  {notification.type === 'info' && <span className="mr-2">ℹ️</span>}
+                  <span className="font-medium">
+                    {notification.type === 'success' && 'Success'}
+                    {notification.type === 'error' && 'Error'}
+                    {notification.type === 'info' && 'Info'}
+                  </span>
+                </div>
+                <p className="text-sm break-words">{notification.message}</p>
+                {notification.message.includes('testnet.steexp.com') && (
+                  <div className="mt-2">
+                    <a 
+                      href={notification.message.match(/https:\/\/testnet\.steexp\.com\/[^\s]+/)?.[0] || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs underline font-medium hover:no-underline"
+                    >
+                      View on Stellar Explorer →
+                    </a>
+                  </div>
+                )}
+              </div>
               <button 
                 onClick={() => setNotification(null)}
-                className="ml-4 text-gray-400 hover:text-gray-600"
+                className="ml-4 text-gray-400 hover:text-gray-600 text-xl leading-none"
+                title="Close notification"
               >
                 ×
               </button>
