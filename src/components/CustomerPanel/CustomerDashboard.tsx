@@ -10,13 +10,16 @@ import {
   Search,
   ArrowUpRight,
   Trophy,
-  Zap
+  Zap,
+  Coffee,
+  ShoppingCart
 } from 'lucide-react';
 import Button from '@/components/Shared/Button';
 import Card from '@/components/Shared/Card';
 import WalletConnection from '@/components/Shared/WalletConnection';
 import { formatNumber, formatDate } from '@/utils';
 import { useWalletRequired } from '@/hooks/useWalletRequired';
+import { StellarService } from '@/services/stellarService';
 
 interface TokenBalance {
   tokenSymbol: string;
@@ -52,15 +55,38 @@ interface Transaction {
   status: 'completed' | 'pending';
 }
 
+interface CoffeeItem {
+  id: string;
+  name: string;
+  price: number;
+  loyaltyPoints: number;
+  description: string;
+  image?: string;
+}
+
 const CustomerDashboard: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'rewards' | 'history'>('overview');
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'rewards' | 'history' | 'shop'>('overview');
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [pendingAction, setPendingAction] = useState<'earnTokens' | 'redeemReward' | 'scanQR' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'earnTokens' | 'redeemReward' | 'scanQR' | 'buyCoffee' | null>(null);
   const [pendingActionData, setPendingActionData] = useState<string | null>(null);
-  const { requireWalletWithModal, address } = useWalletRequired();  // Auto-update wallet address and handle pending actions
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+  const [tokenBalanceState, setTokenBalanceState] = useState<TokenBalance[]>([]);
+  const [businessWalletStatus, setBusinessWalletStatus] = useState<{
+    address: string;
+    exists: boolean;
+    balance: string;
+    error?: string;
+  } | null>(null);
+  const [customerTransactions, setCustomerTransactions] = useState<Transaction[]>([]);
+  const [isLoadingCustomerTransactions, setIsLoadingCustomerTransactions] = useState(false);
+  const { requireWalletWithModal, address } = useWalletRequired();// Auto-update wallet address and handle pending actions
   useEffect(() => {
     console.log('useEffect triggered - address:', address, 'pendingAction:', pendingAction);
     
@@ -71,8 +97,7 @@ const CustomerDashboard: React.FC = () => {
       // Execute pending action if any
       if (pendingAction) {
         console.log('Executing pending action:', pendingAction, 'with data:', pendingActionData);
-        
-        switch (pendingAction) {
+          switch (pendingAction) {
           case 'earnTokens':
             if (pendingActionData) {
               console.log('Executing pending token earning for:', pendingActionData);
@@ -89,14 +114,88 @@ const CustomerDashboard: React.FC = () => {
             console.log('Executing pending QR scan');
             setShowQRScanner(true);
             break;
+          case 'buyCoffee':
+            if (pendingActionData) {
+              console.log('Executing pending coffee purchase for:', pendingActionData);
+              const coffeeItem = coffeeItems.find(item => item.id === pendingActionData);
+              if (coffeeItem) {
+                handleCoffeePurchase(coffeeItem);
+              }
+            }
+            break;
         }
         // Clear pending actions
         console.log('Clearing pending actions');
         setPendingAction(null);
         setPendingActionData(null);
       }
+    }  }, [address, pendingAction, pendingActionData]);
+
+  // Auto-clear notifications after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }  }, [notification]);
+
+  // Check business wallet status on component mount
+  useEffect(() => {
+    const checkBusinessWallet = async () => {
+      try {
+        const status = await StellarService.testBusinessWallet();
+        setBusinessWalletStatus(status);
+      } catch (error) {
+        console.error('Failed to check business wallet:', error);
+      }
+    };
+
+    checkBusinessWallet();
+  }, []);
+
+  // Refresh business wallet status
+  const refreshBusinessWallet = async () => {
+    try {
+      const status = await StellarService.testBusinessWallet();
+      setBusinessWalletStatus(status);
+      
+      setNotification({
+        type: 'info',
+        message: `Business wallet refreshed. Status: ${status.exists ? 'Active' : 'Not Found'}`
+      });
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to refresh business wallet status'
+      });
     }
-  }, [address, pendingAction, pendingActionData]);
+  };
+
+  // Fund business wallet
+  const fundBusinessWallet = async () => {
+    try {
+      const result = await StellarService.fundBusinessWalletIfNeeded();
+      
+      setNotification({
+        type: result.success ? 'success' : 'error',
+        message: result.message
+      });
+      
+      // Refresh status after funding attempt
+      if (result.success) {
+        setTimeout(() => {
+          refreshBusinessWallet();        }, 2000);
+      }
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to fund business wallet'
+      });
+    }
+  };
+
   // Mock data - will come from API in real application
   const tokenBalances: TokenBalance[] = [
     {
@@ -205,6 +304,41 @@ const CustomerDashboard: React.FC = () => {
     },
   ];
 
+  const coffeeItems: CoffeeItem[] = [
+    {
+      id: '1',
+      name: 'Espresso',
+      price: 15,
+      loyaltyPoints: 10,
+      description: 'Strong and rich espresso shot',
+      image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400'
+    },
+    {
+      id: '2',
+      name: 'Cappuccino',
+      price: 25,
+      loyaltyPoints: 20,
+      description: 'Creamy cappuccino with steamed milk',
+      image: 'https://images.unsplash.com/photo-1557006021-b85faa2bc5e2?w=400'
+    },
+    {
+      id: '3',
+      name: 'Latte',
+      price: 30,
+      loyaltyPoints: 25,
+      description: 'Smooth latte with milk foam art',
+      image: 'https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=400'
+    },
+    {
+      id: '4',
+      name: 'Americano',
+      price: 20,
+      loyaltyPoints: 15,
+      description: 'Bold americano with hot water',
+      image: 'https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400'
+    }
+  ];
+
   const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
     console.log('handleEarnTokens called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
@@ -213,7 +347,7 @@ const CustomerDashboard: React.FC = () => {
       console.log('Wallet already connected, proceeding with token earning');
       try {
         console.log('Earning tokens from:', businessId);
-        // QR code scanning or manual token earning logic
+        // Execute earn tokens logic here
       } catch (error) {
         console.error('Token earning failed:', error);
       }
@@ -234,7 +368,7 @@ const CustomerDashboard: React.FC = () => {
     // This shouldn't happen with current logic, but just in case
     try {
       console.log('Earning tokens from:', businessId);
-      // QR code scanning or manual token earning logic
+      // Execute earn tokens logic here
     } catch (error) {
       console.error('Token earning failed:', error);
     }
@@ -273,6 +407,172 @@ const CustomerDashboard: React.FC = () => {
     }
   };
 
+  // Initialize token balances
+  useEffect(() => {
+    setTokenBalanceState(tokenBalances);
+  }, []);  // Coffee purchase handler
+  const handleCoffeePurchase = async (coffeeItem: CoffeeItem) => {
+    console.log('handleCoffeePurchase called, current walletAddress:', walletAddress);
+    
+    if (!walletAddress) {
+      console.log('Wallet not connected, showing modal');
+      setPendingAction('buyCoffee');
+      setPendingActionData(coffeeItem.id);
+      await requireWalletWithModal();
+      return;
+    }
+
+    // Check if Freighter wallet is available
+    const freighterInfo = StellarService.getFreighterInfo();
+    if (!freighterInfo.isAvailable) {
+      setNotification({
+        type: 'error',
+        message: freighterInfo.message
+      });
+      return;
+    }    setIsProcessingPurchase(true);
+    try {
+      // Get a valid business wallet address
+      const businessWallet = await StellarService.getBusinessWalletAddress();
+      console.log('Business wallet obtained:', businessWallet);
+      console.log('Customer wallet:', walletAddress);
+      console.log('Coffee item:', coffeeItem);
+      
+      // Create the transaction
+      const result = await StellarService.purchaseCoffeeAndEarnTokens(
+        walletAddress,
+        businessWallet,
+        coffeeItem.price,
+        coffeeItem.loyaltyPoints
+      );
+
+      console.log('Transaction creation result:', result);
+
+      if (result.success && result.transaction) {
+        // Sign and submit the transaction
+        const submitResult = await StellarService.signAndSubmitTransaction(
+          result.transaction,
+          walletAddress
+        );        if (submitResult.success) {
+          // Update local token balance
+          setTokenBalanceState(prev => 
+            prev.map(token => 
+              token.tokenSymbol === 'COFFEE' 
+                ? { ...token, balance: token.balance + coffeeItem.loyaltyPoints }
+                : token
+            )
+          );
+            setNotification({
+            type: 'success',
+            message: `Coffee purchased successfully! Earned ${coffeeItem.loyaltyPoints} COFFEE tokens. View transaction: https://testnet.steexp.com/tx/${submitResult.transactionHash}`
+          });
+            console.log('Transaction submitted successfully. Hash:', submitResult.transactionHash);
+          console.log('Waiting for transaction to be processed on the network...');
+          
+          // Refresh transaction history with retry mechanism
+          const refreshWithRetry = async (attempt = 1, maxAttempts = 3) => {
+            console.log(`Attempting to refresh transaction history (attempt ${attempt}/${maxAttempts})`);
+            
+            const initialCount = customerTransactions.length;
+            await refreshCustomerTransactionHistory();
+            
+            // Wait a bit to see if new transactions appeared
+            setTimeout(() => {
+              const newCount = customerTransactions.length;
+              console.log(`Transaction count: ${initialCount} -> ${newCount}`);
+              
+              if (newCount <= initialCount && attempt < maxAttempts) {
+                console.log(`No new transactions found, retrying in ${5 * attempt} seconds...`);
+                setTimeout(() => refreshWithRetry(attempt + 1, maxAttempts), 5000 * attempt);
+              } else if (newCount > initialCount) {
+                console.log('New transaction detected in history!');
+                setNotification({
+                  type: 'success',
+                  message: 'Transaction confirmed! Your transaction is now visible in the blockchain.'
+                });
+              } else {
+                console.log('Maximum retry attempts reached. Transaction may take longer to appear.');
+              }
+            }, 1000);
+          };
+          
+          // Start the retry mechanism after 5 seconds
+          setTimeout(() => refreshWithRetry(), 5000);
+          
+        } else {
+          console.error('Transaction submission failed:', submitResult.message);
+          setNotification({
+            type: 'error',
+            message: `Transaction failed: ${submitResult.message}`
+          });
+        }
+      } else {
+        setNotification({
+          type: 'error',
+          message: `Failed to create transaction: ${result.message}`
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setNotification({
+        type: 'error',
+        message: `Coffee purchase failed: ${errorMessage}`
+      });
+    } finally {
+      setIsProcessingPurchase(false);
+    }
+  };
+  // Refresh customer transaction history
+  const refreshCustomerTransactionHistory = async () => {
+    if (walletAddress) {
+      console.log('Starting transaction history refresh for wallet:', walletAddress);
+      setIsLoadingCustomerTransactions(true);
+      try {
+        const history = await StellarService.getTransactionHistory(walletAddress, 15);
+        console.log('Received transaction history:', history);
+        
+        // Convert Stellar transactions to our Transaction format
+        const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => ({
+          id: tx.id || `tx_${index}`,
+          type: tx.type === 'sent' ? 'earn' : 'transfer',
+          amount: tx.amount || 0,
+          tokenSymbol: tx.asset || 'XLM',
+          businessName: tx.type === 'sent' ? 'Stellar Coffee Co.' : 'External',
+          description: tx.memo || `${tx.asset || 'XLM'} transaction`,
+          timestamp: tx.timestamp || new Date(),
+          status: 'completed' as const
+        }));
+
+        console.log('Converted transactions:', convertedTransactions);
+        setCustomerTransactions(convertedTransactions);
+        
+        setNotification({
+          type: 'info',
+          message: `Transaction history updated. Found ${convertedTransactions.length} transactions.`
+        });
+      } catch (error) {
+        console.error('Failed to refresh transaction history:', error);
+        setNotification({
+          type: 'error',
+          message: 'Failed to refresh transaction history. Using fallback data.'
+        });
+        // Fallback to existing mock data
+        setCustomerTransactions(recentTransactions);
+      } finally {
+        setIsLoadingCustomerTransactions(false);
+      }
+    } else {
+      console.log('No wallet address available for transaction history refresh');
+    }
+  };
+
+  // Load transaction history when wallet connects
+  useEffect(() => {
+    if (walletAddress) {
+      refreshCustomerTransactionHistory();
+    }
+  }, [walletAddress]);
+
   const filteredRewards = rewardOptions.filter(reward => {
     const matchesSearch = reward.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          reward.businessName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -280,7 +580,7 @@ const CustomerDashboard: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const totalTokenValue = tokenBalances.reduce((sum, token) => sum + token.balance, 0);
+  const totalTokenValue = tokenBalanceState.reduce((sum, token) => sum + token.balance, 0);
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -319,45 +619,22 @@ const CustomerDashboard: React.FC = () => {
         <Card className="p-6 bg-gradient-to-r from-orange-500 to-red-600 text-white">
           <div className="flex items-center justify-between">            <div>
               <p className="text-orange-100">Active Businesses</p>
-              <p className="text-3xl font-bold">{tokenBalances.length}</p>
+              <p className="text-3xl font-bold">{tokenBalanceState.length}</p>
             </div>
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
               <ShoppingBag className="w-6 h-6" />
             </div>
           </div>
         </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">        <Button 
-          onClick={async () => {
-            console.log('QR Scanner clicked, current walletAddress:', walletAddress);
-            
-            // If wallet is already connected, open QR scanner immediately
-            if (walletAddress) {
-              console.log('Wallet already connected, opening QR scanner');
-              setShowQRScanner(true);
-              return;
-            }
-            
-            // Check wallet connection first
-            console.log('Wallet not connected, showing modal');
-            const isWalletConnected = await requireWalletWithModal();
-            if (!isWalletConnected) {
-              // Modal was shown, set pending action to execute after wallet connects
-              console.log('Modal shown, setting pending QR action');
-              setPendingAction('scanQR');
-              return;
-            }
-            
-            // This shouldn't happen with current logic, but just in case
-            setShowQRScanner(true);
-          }}
-          className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-purple-600 to-blue-600"
+      </div>      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Button 
+          onClick={() => setSelectedTab('shop')}
+          className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-amber-500 to-orange-600"
         >
-          <QrCode className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Scan QR Code</div>
-          <div className="text-sm opacity-90 font-normal">Earn tokens by shopping</div>
+          <Coffee className="w-6 h-6 mb-2" />
+          <div className="font-semibold">Coffee Shop</div>
+          <div className="text-sm opacity-90 font-normal">Buy coffee, earn tokens</div>
         </Button>
 
         <Button 
@@ -450,7 +727,7 @@ const CustomerDashboard: React.FC = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">My Token Balances</h2>
       <div className="grid gap-6">
-        {tokenBalances.map((token, index) => (
+        {tokenBalanceState.map((token, index) => (
           <Card key={index} className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -583,14 +860,30 @@ const CustomerDashboard: React.FC = () => {
       )}
     </div>
   );
-
   const renderHistory = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Transaction History</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold">Transaction History</h2>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={refreshCustomerTransactionHistory}
+          disabled={isLoadingCustomerTransactions}
+        >
+          {isLoadingCustomerTransactions ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
       <Card>
         <div className="p-6">
-          <div className="space-y-4">
-            {recentTransactions.map((transaction) => (
+          {isLoadingCustomerTransactions ? (
+            <div className="animate-pulse flex flex-col space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-full"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {customerTransactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between py-4 border-b last:border-b-0">
                 <div className="flex items-center space-x-4">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -618,38 +911,304 @@ const CustomerDashboard: React.FC = () => {
                 <div className="text-right">
                   <div className={`font-bold text-xl ${
                     transaction.type === 'earn' ? 'text-green-600' : 'text-blue-600'
-                  }`}>
-                    {transaction.type === 'earn' ? '+' : '-'}{transaction.amount}
+                  }`}>                    {transaction.type === 'earn' ? '+' : '-'}{transaction.amount}
                   </div>
                   <div className="text-sm text-gray-500">{transaction.tokenSymbol}</div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
     </div>
   );
 
+  const renderCoffeeShop = () => (
+    <div className="space-y-6">
+      {/* Wallet Connection */}
+      <div className="mb-6">
+        <WalletConnection 
+          publicKey={walletAddress} 
+          onConnect={setWalletAddress} 
+        />
+      </div>      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold">☕ Coffee Shop</h2>
+        <div className="flex items-center space-x-4">
+          <div className="text-sm text-gray-600">
+            Earn <span className="font-semibold text-amber-600">COFFEE tokens</span> with every purchase!
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={refreshCustomerTransactionHistory}
+            disabled={isLoadingCustomerTransactions}
+          >
+            {isLoadingCustomerTransactions ? 'Refreshing...' : 'Refresh History'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Freighter Wallet Status */}
+      {!StellarService.isFreighterAvailable() && (
+        <Card className="p-4 bg-yellow-50 border-yellow-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+              <span className="text-yellow-600">⚠️</span>
+            </div>
+            <div>
+              <h4 className="font-medium text-yellow-800">Freighter Wallet Required</h4>
+              <p className="text-sm text-yellow-700">
+                To make purchases, please install the Freighter browser extension from{' '}
+                <a 
+                  href="https://freighter.app/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="underline font-medium"
+                >
+                  freighter.app
+                </a>
+              </p>
+            </div>
+          </div>        </Card>
+      )}
+
+      {/* Business Wallet Status */}
+      {businessWalletStatus && (
+        <Card className={`p-4 ${
+          businessWalletStatus.exists 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center space-x-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              businessWalletStatus.exists 
+                ? 'bg-green-100' 
+                : 'bg-red-100'
+            }`}>
+              <span className={businessWalletStatus.exists ? 'text-green-600' : 'text-red-600'}>
+                {businessWalletStatus.exists ? '✅' : '❌'}
+              </span>
+            </div>
+            <div className="flex-1">
+              <h4 className={`font-medium ${
+                businessWalletStatus.exists ? 'text-green-800' : 'text-red-800'
+              }`}>
+                Business Wallet Status
+              </h4>
+              <p className={`text-sm font-mono ${
+                businessWalletStatus.exists ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {businessWalletStatus.address}
+              </p>
+              {businessWalletStatus.exists ? (
+                <p className="text-sm text-green-600">
+                  Balance: {parseFloat(businessWalletStatus.balance).toFixed(2)} XLM
+                </p>
+              ) : (
+                <p className="text-sm text-red-600">
+                  {businessWalletStatus.error || 'Wallet not found or not funded'}
+                </p>
+              )}            </div>
+            <div className="flex flex-col space-y-2">
+              <button
+                onClick={refreshBusinessWallet}
+                className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+              >
+                Refresh
+              </button>
+              {!businessWalletStatus.exists && (
+                <button
+                  onClick={fundBusinessWallet}
+                  className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                >
+                  Fund Wallet
+                </button>
+              )}
+              <a
+                href={`https://friendbot.stellar.org/?addr=${businessWalletStatus.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 text-center"
+              >
+                Manual Fund
+              </a>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {coffeeItems.map((coffee) => (
+          <Card key={coffee.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            {coffee.image && (
+              <img 
+                src={coffee.image} 
+                alt={coffee.name}
+                className="w-full h-48 object-cover"
+              />
+            )}
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-2">{coffee.name}</h3>
+              <p className="text-gray-600 text-sm mb-4">{coffee.description}</p>
+              
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-2xl font-bold text-gray-900">{coffee.price} XLM</div>
+                <div className="flex items-center text-amber-600">
+                  <Trophy className="w-4 h-4 mr-1" />
+                  <span className="text-sm font-medium">+{coffee.loyaltyPoints} COFFEE</span>
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => handleCoffeePurchase(coffee)}
+                disabled={isProcessingPurchase}
+                className="w-full"
+              >
+                {isProcessingPurchase ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Buy Now
+                  </div>
+                )}
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Coffee Shop Info */}
+      <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+        <div className="p-6">
+          <div className="flex items-center mb-4">
+            <Coffee className="w-8 h-8 text-amber-600 mr-3" />
+            <div>
+              <h3 className="text-xl font-semibold text-amber-900">Stellar Coffee Co.</h3>
+              <p className="text-amber-700">Premium coffee experience on the blockchain</p>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-center text-amber-800">
+              <MapPin className="w-4 h-4 mr-2" />
+              Istanbul, Besiktas
+            </div>
+            <div className="flex items-center text-amber-800">
+              <Zap className="w-4 h-4 mr-2" />
+              Instant loyalty rewards
+            </div>
+            <div className="flex items-center text-amber-800">
+              <Trophy className="w-4 h-4 mr-2" />
+              1 XLM = 1 COFFEE token
+            </div>          </div>
+        </div>
+      </Card>
+
+      {/* Debug Panel - Development Only */}
+      {walletAddress && (
+        <Card className="bg-gray-50 border-gray-200">
+          <div className="p-4">
+            <h4 className="font-medium text-gray-700 mb-3">🔧 Debug Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-600">Customer Wallet:</span>
+                <p className="font-mono text-xs text-gray-800 break-all">{walletAddress}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Business Wallet:</span>
+                <p className="font-mono text-xs text-gray-800">GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Network:</span>
+                <p className="text-gray-800">Stellar Testnet</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Freighter Status:</span>
+                <p className={`font-medium ${StellarService.isFreighterAvailable() ? 'text-green-600' : 'text-red-600'}`}>
+                  {StellarService.isFreighterAvailable() ? 'Available' : 'Not Available'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <span className="font-medium text-gray-600">Quick Links:</span>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <a 
+                  href={`https://testnet.steexp.com/account/${walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                >
+                  View Customer Account
+                </a>
+                <a 
+                  href="https://testnet.steexp.com/account/GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                >
+                  View Business Account
+                </a>
+                <a 
+                  href={`https://friendbot.stellar.org/?addr=${walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200"
+                >
+                  Fund Customer Wallet
+                </a>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">          <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Panel</h1>
+      <div className="max-w-7xl mx-auto">        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Panel</h1>
           <p className="text-gray-600">Manage your tokens, discover rewards and support local businesses</p>
         </div>
+
+        {/* Notification */}
+        {notification && (
+          <div className={`mb-6 p-4 rounded-lg border-l-4 ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border-green-400 text-green-700' 
+              : notification.type === 'error'
+              ? 'bg-red-50 border-red-400 text-red-700'
+              : 'bg-blue-50 border-blue-400 text-blue-700'
+          }`}>
+            <div className="flex justify-between items-start">
+              <p className="text-sm">{notification.message}</p>
+              <button 
+                onClick={() => setNotification(null)}
+                className="ml-4 text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-8">
           <nav className="-mb-px flex space-x-8">            {[
               { id: 'overview', label: 'Overview', icon: TrendingUp },
+              { id: 'shop', label: 'Coffee Shop', icon: Coffee },
               { id: 'tokens', label: 'My Tokens', icon: Coins },
               { id: 'rewards', label: 'Rewards', icon: Gift },
               { id: 'history', label: 'History', icon: Clock },
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setSelectedTab(tab.id as 'overview' | 'tokens' | 'rewards' | 'history')}
+                onClick={() => setSelectedTab(tab.id as 'overview' | 'shop' | 'tokens' | 'rewards' | 'history')}
                 className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                   selectedTab === tab.id
                     ? 'border-primary-500 text-primary-600'
@@ -668,6 +1227,7 @@ const CustomerDashboard: React.FC = () => {
         {selectedTab === 'tokens' && renderTokens()}
         {selectedTab === 'rewards' && renderRewards()}
         {selectedTab === 'history' && renderHistory()}
+        {selectedTab === 'shop' && renderCoffeeShop()}
 
         {/* QR Scanner Modal */}
         {showQRScanner && (

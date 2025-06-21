@@ -17,6 +17,7 @@ import Card from '@/components/Shared/Card';
 import WalletConnection from '@/components/Shared/WalletConnection';
 import { useWalletRequired } from '@/hooks/useWalletRequired';
 import { formatNumber, formatDate } from '@/utils';
+import { StellarService } from '@/services/stellarService';
 
 interface BusinessStats {
   totalTokensIssued: number;
@@ -47,12 +48,15 @@ interface Transaction {
   description: string;
 }
 
-const BusinessDashboard: React.FC = () => {  const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'customers' | 'analytics'>('overview');
+const BusinessDashboard: React.FC = () => {
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'customers' | 'analytics'>('overview');
   const [showCreateToken, setShowCreateToken] = useState(false);
   const [showDistributeTokens, setShowDistributeTokens] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<'createToken' | 'distributeTokens' | null>(null);
   const [pendingActionData, setPendingActionData] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const { requireWalletWithModal, address } = useWalletRequired();
 
   // Auto-update wallet address and handle pending actions
@@ -83,7 +87,80 @@ const BusinessDashboard: React.FC = () => {  const [selectedTab, setSelectedTab]
         setPendingActionData(null);
       }
     }
-  }, [address, pendingAction, pendingActionData]);
+  }, [address, pendingAction, pendingActionData]);  // Load transaction history when wallet is connected or on component mount
+  useEffect(() => {
+    const loadTransactionHistory = async () => {
+      // Always show business wallet transactions, regardless of connected wallet
+      const businessWalletAddress = 'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK';
+      
+      console.log('Loading business transaction history for business wallet:', businessWalletAddress);
+      setIsLoadingTransactions(true);
+      try {
+        const history = await StellarService.getTransactionHistory(businessWalletAddress, 15);
+        console.log('Business transaction history received:', history);
+        
+        // Convert Stellar transactions to our Transaction format
+        // For business wallet: 'received' = customer payment (issued tokens), 'sent' = business expense
+        const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => {
+          const isPaymentReceived = tx.type === 'received';
+          return {
+            id: tx.id || `tx_${index}`,
+            type: isPaymentReceived ? 'issued' : 'redeemed', 
+            amount: tx.amount || 0,
+            customer: isPaymentReceived ? 'Customer Payment' : 'Business Expense',
+            customerAddress: isPaymentReceived ? tx.from : tx.to,
+            timestamp: tx.timestamp || new Date(),
+            description: tx.memo || `${tx.asset || 'XLM'} ${isPaymentReceived ? 'payment received' : 'transaction'}`
+          };
+        });
+
+        console.log('Converted business transactions:', convertedTransactions);
+        setTransactions(convertedTransactions);
+      } catch (error) {
+        console.error('Failed to load business transaction history:', error);
+        // Fallback to mock data if real data fails
+        setTransactions(recentTransactions);
+      } finally {
+        setIsLoadingTransactions(false);
+      }
+    };    // Load transactions on component mount
+    loadTransactionHistory();
+  }, []); // Removed walletAddress dependency to always load business wallet transactions
+
+  // Refresh transaction history
+  const refreshTransactionHistory = async () => {
+    // Always refresh business wallet transactions
+    const businessWalletAddress = 'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK';
+    
+    console.log('Refreshing business transaction history for business wallet:', businessWalletAddress);
+    setIsLoadingTransactions(true);
+    try {
+      const history = await StellarService.getTransactionHistory(businessWalletAddress, 15);
+      console.log('Refreshed business transaction history:', history);
+      
+      // Convert Stellar transactions to our Transaction format
+      // For business wallet: 'received' = customer payment (issued tokens), 'sent' = business expense
+      const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => {
+        const isPaymentReceived = tx.type === 'received';
+        return {
+          id: tx.id || `tx_${index}`,
+          type: isPaymentReceived ? 'issued' : 'redeemed', 
+          amount: tx.amount || 0,
+          customer: isPaymentReceived ? 'Customer Payment' : 'Business Expense',
+          customerAddress: isPaymentReceived ? tx.from : tx.to,
+          timestamp: tx.timestamp || new Date(),
+          description: tx.memo || `${tx.asset || 'XLM'} ${isPaymentReceived ? 'payment received' : 'transaction'}`
+        };
+      });
+
+      console.log('Updated business transactions:', convertedTransactions);
+      setTransactions(convertedTransactions);
+    } catch (error) {
+      console.error('Failed to refresh business transaction history:', error);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  };
 
   // Mock data
   const businessStats: BusinessStats = {
@@ -173,7 +250,6 @@ const BusinessDashboard: React.FC = () => {  const [selectedTab, setSelectedTab]
     // This shouldn't happen with current logic, but just in case
     setShowDistributeTokens(true);
   };
-
   const renderOverview = () => (
     <div className="space-y-6">
       {/* Wallet Connection - CustomerDashboard Style */}
@@ -182,7 +258,38 @@ const BusinessDashboard: React.FC = () => {  const [selectedTab, setSelectedTab]
           publicKey={walletAddress} 
           onConnect={setWalletAddress} 
         />
-      </div>
+      </div>      {/* Business Wallet Info */}
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h4 className="font-medium text-blue-900">Business Wallet (Receiving Payments)</h4>
+              <p className="text-sm text-blue-700 font-mono">GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK</p>
+              <p className="text-xs text-blue-600">Customer coffee purchases will be sent to this address</p>
+            </div>
+          </div>
+          <div className="flex flex-col space-y-2">
+            <a
+              href="https://testnet.steexp.com/account/GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-center"
+            >
+              View on Explorer
+            </a>
+            <button
+              onClick={refreshTransactionHistory}
+              disabled={isLoadingTransactions}
+              className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+            >
+              {isLoadingTransactions ? 'Refreshing...' : 'Refresh History'}
+            </button>
+          </div>
+        </div>
+      </Card>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -285,39 +392,131 @@ const BusinessDashboard: React.FC = () => {  const [selectedTab, setSelectedTab]
           <div className="font-semibold">View Analytics</div>
           <div className="text-sm opacity-90 font-normal">Review detailed reports</div>
         </Button>
-      </div>
-
-      {/* Recent Transactions */}
+      </div>      {/* Recent Transactions */}
       <Card>
         <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
-          <div className="space-y-4">
-            {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    transaction.type === 'issued' ? 'bg-green-100' : 'bg-blue-100'
-                  }`}>
-                    {transaction.type === 'issued' ? 
-                      <ArrowUpRight className="w-5 h-5 text-green-600" /> :
-                      <ArrowDownRight className="w-5 h-5 text-blue-600" />
-                    }
-                  </div>
-                  <div>
-                    <div className="font-medium">{transaction.description}</div>
-                    <div className="text-sm text-gray-500">{transaction.customer}</div>
-                  </div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Recent Transactions</h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshTransactionHistory}
+              disabled={isLoadingTransactions}
+            >
+              {isLoadingTransactions ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
+          {isLoadingTransactions ? (
+            <div className="animate-pulse flex flex-col space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-full"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>          ) : (
+            <div className="space-y-4">
+              {transactions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">📊</div>
+                  <h3 className="font-medium mb-2">No Transactions Yet</h3>
+                  <p className="text-sm">
+                    Customer payments to your business wallet will appear here.
+                  </p>
+                  <p className="text-xs mt-2">
+                    Business Wallet: GBFHNS7...HMPDRLK
+                  </p>
                 </div>
-                <div className="text-right">
-                  <div className={`font-bold ${
-                    transaction.type === 'issued' ? 'text-green-600' : 'text-blue-600'
-                  }`}>
-                    {transaction.type === 'issued' ? '+' : '-'}{transaction.amount} COFFEE
+              ) : (
+                transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      transaction.type === 'issued' ? 'bg-green-100' : 'bg-blue-100'
+                    }`}>
+                      {transaction.type === 'issued' ? 
+                        <ArrowUpRight className="w-5 h-5 text-green-600" /> :
+                        <ArrowDownRight className="w-5 h-5 text-blue-600" />
+                      }
+                    </div>                    <div>
+                      <div className="font-medium">{transaction.description}</div>
+                      <div className="text-sm text-gray-500">{transaction.customer}</div>
+                      {transaction.customerAddress && (
+                        <div className="text-xs text-gray-400 font-mono">
+                          {transaction.customerAddress.substring(0, 8)}...{transaction.customerAddress.substring(transaction.customerAddress.length - 8)}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500">{formatDate(transaction.timestamp)}</div>
-                </div>
-              </div>
-            ))}
+                  <div className="text-right">
+                    <div className={`font-bold ${
+                      transaction.type === 'issued' ? 'text-green-600' : 'text-blue-600'
+                    }`}>
+                      {transaction.type === 'issued' ? '💰 +' : '📤 -'}{transaction.amount} XLM
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {transaction.type === 'issued' ? 'Payment Received' : 'Business Transaction'}
+                    </div>
+                    <div className="text-sm text-gray-500">{formatDate(transaction.timestamp)}</div>
+                  </div>                </div>
+              ))
+              )}
+            </div>)}
+        </div>
+      </Card>
+
+      {/* Business Debug Panel */}
+      <Card className="bg-gray-50 border-gray-200">
+        <div className="p-4">
+          <h4 className="font-medium text-gray-700 mb-3">🏢 Business Debug Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-gray-600">Connected Wallet:</span>
+              <p className="font-mono text-xs text-gray-800 break-all">{walletAddress || 'Not Connected'}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Business Receiving Wallet:</span>
+              <p className="font-mono text-xs text-gray-800">GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Network:</span>
+              <p className="text-gray-800">Stellar Testnet</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Transaction Count:</span>
+              <p className="text-gray-800">{transactions.length} transactions loaded</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <span className="font-medium text-gray-600">Business Operations:</span>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <a 
+                href="https://testnet.steexp.com/account/GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+              >
+                View Business Account
+              </a>
+              {walletAddress && (
+                <a 
+                  href={`https://testnet.steexp.com/account/${walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                >
+                  View Connected Wallet
+                </a>
+              )}
+              <button
+                onClick={refreshTransactionHistory}
+                disabled={isLoadingTransactions}
+                className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200"
+              >
+                Force Refresh History
+              </button>
+            </div>
+            <div className="mt-2 text-xs text-gray-600">
+              <p>💡 Tips: Customer payments to the business wallet will show as "issued" transactions.</p>
+              <p>📊 Transaction Type Mapping: Received = Issued Tokens | Sent = Redeemed/Business Expense</p>
+            </div>
           </div>
         </div>
       </Card>
