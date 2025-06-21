@@ -3,10 +3,7 @@ import {
   Coins, 
   Users, 
   TrendingUp, 
-  Gift, 
   Plus, 
-  Eye,
-  Settings,
   BarChart3,
   CreditCard,
   ArrowUpRight,
@@ -16,27 +13,8 @@ import Button from '@/components/Shared/Button';
 import Card from '@/components/Shared/Card';
 import WalletConnection from '@/components/Shared/WalletConnection';
 import { useWalletRequired } from '@/hooks/useWalletRequired';
-import { formatNumber, formatDate } from '@/utils';
+import { formatDate } from '@/utils';
 import { StellarService } from '@/services/stellarService';
-
-interface BusinessStats {
-  totalTokensIssued: number;
-  activeCustomers: number;
-  tokensRedeemed: number;
-  totalRevenue: number;
-  conversionRate: number;
-}
-
-interface TokenData {
-  id: string;
-  name: string;
-  symbol: string;
-  totalSupply: number;
-  issued: number;
-  redeemed: number;
-  rate: number;
-  description: string;
-}
 
 interface Transaction {
   id: string;
@@ -51,9 +29,8 @@ interface Transaction {
 const BusinessDashboard: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'tokens' | 'customers' | 'analytics'>('overview');
   const [showCreateToken, setShowCreateToken] = useState(false);
-  const [showDistributeTokens, setShowDistributeTokens] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<'createToken' | 'distributeTokens' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'createToken' | null>(null);
   const [pendingActionData, setPendingActionData] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
@@ -70,15 +47,10 @@ const BusinessDashboard: React.FC = () => {
       // Execute pending action if any
       if (pendingAction) {
         console.log('Executing pending action:', pendingAction, 'with data:', pendingActionData);
-        
-        switch (pendingAction) {
+          switch (pendingAction) {
           case 'createToken':
             console.log('Executing pending token creation');
             setShowCreateToken(true);
-            break;
-          case 'distributeTokens':
-            console.log('Executing pending token distribution');
-            setShowDistributeTokens(true);
             break;
         }
         // Clear pending actions
@@ -87,123 +59,78 @@ const BusinessDashboard: React.FC = () => {
         setPendingActionData(null);
       }
     }
-  }, [address, pendingAction, pendingActionData]);  // Load transaction history when wallet is connected or on component mount
+  }, [address, pendingAction, pendingActionData]);  // Load transaction history when wallet is connected
   useEffect(() => {
-    const loadTransactionHistory = async () => {
-      // Always show business wallet transactions, regardless of connected wallet
-      const businessWalletAddress = 'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK';
-      
-      console.log('Loading business transaction history for business wallet:', businessWalletAddress);
-      setIsLoadingTransactions(true);
-      try {
-        const history = await StellarService.getTransactionHistory(businessWalletAddress, 15);
-        console.log('Business transaction history received:', history);
-        
-        // Convert Stellar transactions to our Transaction format
-        // For business wallet: 'received' = customer payment (issued tokens), 'sent' = business expense
-        const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => {
-          const isPaymentReceived = tx.type === 'received';
-          return {
-            id: tx.id || `tx_${index}`,
-            type: isPaymentReceived ? 'issued' : 'redeemed', 
-            amount: tx.amount || 0,
-            customer: isPaymentReceived ? 'Customer Payment' : 'Business Expense',
-            customerAddress: isPaymentReceived ? tx.from : tx.to,
-            timestamp: tx.timestamp || new Date(),
-            description: tx.memo || `${tx.asset || 'XLM'} ${isPaymentReceived ? 'payment received' : 'transaction'}`
-          };
-        });
+    if (walletAddress) {
+      loadTransactionHistory();
+    }
+  }, [walletAddress]);
 
-        console.log('Converted business transactions:', convertedTransactions);
-        setTransactions(convertedTransactions);
-      } catch (error) {
-        console.error('Failed to load business transaction history:', error);
-        // Fallback to mock data if real data fails
-        setTransactions(recentTransactions);
-      } finally {
-        setIsLoadingTransactions(false);
-      }
-    };    // Load transactions on component mount
-    loadTransactionHistory();
-  }, []); // Removed walletAddress dependency to always load business wallet transactions
+  const loadTransactionHistory = async () => {
+    if (!walletAddress) {
+      console.log('No wallet connected, skipping transaction history load');
+      return;
+    }
 
-  // Refresh transaction history
-  const refreshTransactionHistory = async () => {
-    // Always refresh business wallet transactions
-    const businessWalletAddress = 'GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK';
-    
-    console.log('Refreshing business transaction history for business wallet:', businessWalletAddress);
+    console.log('Loading transaction history for connected wallet:', walletAddress);
     setIsLoadingTransactions(true);
     try {
-      const history = await StellarService.getTransactionHistory(businessWalletAddress, 15);
-      console.log('Refreshed business transaction history:', history);
+      const history = await StellarService.getTransactionHistory(walletAddress, 15);
+      console.log('Transaction history received for wallet:', walletAddress, history);
       
       // Convert Stellar transactions to our Transaction format
-      // For business wallet: 'received' = customer payment (issued tokens), 'sent' = business expense
+      // For business: analyze transactions to determine if they're customer payments or business expenses
       const convertedTransactions: Transaction[] = history.map((tx: any, index: number) => {
-        const isPaymentReceived = tx.type === 'received';
+        const isIncomingPayment = tx.type === 'received' || tx.type === 'payment_received';
+        const isOutgoingPayment = tx.type === 'sent' || tx.type === 'payment_sent';
+        
+        let transactionType: 'issued' | 'redeemed' = 'issued';
+        let customer = 'Unknown';
+        let description = tx.memo || `${tx.asset || 'XLM'} transaction`;
+        
+        if (isIncomingPayment) {
+          // Incoming payment = customer purchase = tokens issued
+          transactionType = 'issued';
+          customer = 'Customer Payment';
+          description = tx.memo || `Payment received (${tx.amount} XLM)`;
+        } else if (isOutgoingPayment) {
+          // Outgoing payment = business expense or token redemption
+          transactionType = 'redeemed';
+          customer = 'Business Transaction';
+          description = tx.memo || `Business payment (${tx.amount} XLM)`;
+        }
+        
         return {
           id: tx.id || `tx_${index}`,
-          type: isPaymentReceived ? 'issued' : 'redeemed', 
+          type: transactionType,
           amount: tx.amount || 0,
-          customer: isPaymentReceived ? 'Customer Payment' : 'Business Expense',
-          customerAddress: isPaymentReceived ? tx.from : tx.to,
+          customer: customer,
+          customerAddress: isIncomingPayment ? tx.from : tx.to,
           timestamp: tx.timestamp || new Date(),
-          description: tx.memo || `${tx.asset || 'XLM'} ${isPaymentReceived ? 'payment received' : 'transaction'}`
+          description: description
         };
       });
 
-      console.log('Updated business transactions:', convertedTransactions);
+      console.log('Converted transactions for wallet:', walletAddress, convertedTransactions);
       setTransactions(convertedTransactions);
     } catch (error) {
-      console.error('Failed to refresh business transaction history:', error);
+      console.error('Failed to load transaction history for wallet:', walletAddress, error);
+      // Clear transactions on error
+      setTransactions([]);
     } finally {
       setIsLoadingTransactions(false);
     }
   };
 
-  // Mock data
-  const businessStats: BusinessStats = {
-    totalTokensIssued: 50000,
-    activeCustomers: 1250,
-    tokensRedeemed: 12500,
-    totalRevenue: 75000,
-    conversionRate: 3.2
-  };
-
-  const recentTransactions: Transaction[] = [
-    {
-      id: '1',
-      type: 'issued',
-      amount: 100,
-      customer: 'John Doe',
-      customerAddress: 'GDXXX...XXXX',
-      timestamp: new Date(),
-      description: 'Coffee purchase'
-    },
-    {
-      id: '2', 
-      type: 'redeemed',
-      amount: 50,
-      customer: 'Jane Smith',
-      customerAddress: 'GCYYY...YYYY',
-      timestamp: new Date(Date.now() - 3600000),
-      description: 'Free coffee reward'
+  // Refresh transaction history
+  const refreshTransactionHistory = async () => {
+    if (!walletAddress) {
+      console.log('No wallet connected, cannot refresh transaction history');
+      return;
     }
-  ];
+    await loadTransactionHistory();  };
 
-  const tokens: TokenData[] = [
-    {
-      id: '1',
-      name: 'Coffee Shop Rewards',
-      symbol: 'COFFEE',
-      totalSupply: 1000000,
-      issued: 50000,
-      redeemed: 12500,
-      rate: 1,
-      description: 'Coffee shop reward tokens'
-    }
-  ];  const handleCreateToken = async () => {
+  const handleCreateToken = async () => {
     console.log('handleCreateToken called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
     
     // If wallet is already connected, proceed immediately
@@ -224,32 +151,8 @@ const BusinessDashboard: React.FC = () => {
     }
     
     // This shouldn't happen with current logic, but just in case
-    setShowCreateToken(true);
-  };  const handleDistributeTokens = async (tokenIdOrEvent?: string | React.MouseEvent) => {
-    const tokenId = typeof tokenIdOrEvent === 'string' ? tokenIdOrEvent : undefined;
-    console.log('handleDistributeTokens called, current walletAddress:', walletAddress, 'isConnected:', walletAddress ? 'yes' : 'no');
-    
-    // If wallet is already connected, proceed immediately
-    if (walletAddress) {
-      console.log('Wallet already connected, opening token distribution dialog');
-      setShowDistributeTokens(true);
-      return;
-    }
-    
-    // Check wallet connection first
-    console.log('Wallet not connected, showing modal');
-    const isWalletConnected = await requireWalletWithModal();
-    if (!isWalletConnected) {
-      // Modal was shown, set pending action to execute after wallet connects
-      console.log('Modal shown, setting pending action');
-      setPendingAction('distributeTokens');
-      setPendingActionData(tokenId || null);
-      return;
-    }
-    
-    // This shouldn't happen with current logic, but just in case
-    setShowDistributeTokens(true);
-  };
+    setShowCreateToken(true);  };
+  
   const renderOverview = () => (
     <div className="space-y-6">
       {/* Wallet Connection - CustomerDashboard Style */}
@@ -258,211 +161,142 @@ const BusinessDashboard: React.FC = () => {
           publicKey={walletAddress} 
           onConnect={setWalletAddress} 
         />
-      </div>      {/* Business Wallet Info */}
-      <Card className="p-4 bg-blue-50 border-blue-200">
-        <div className="flex items-center justify-between">
+      </div>      {/* Business Wallet Info - Dynamic based on connected wallet */}
+      {walletAddress ? (
+        <Card className="p-4 bg-green-50 border-green-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h4 className="font-medium text-green-900">Connected Business Wallet</h4>
+                <p className="text-sm text-green-700 font-mono">{walletAddress}</p>
+                <p className="text-xs text-green-600">Viewing transactions for this connected wallet</p>
+              </div>
+            </div>
+            <div className="flex flex-col space-y-2">
+              <a
+                href={`https://testnet.steexp.com/account/${walletAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-center"
+              >
+                View on Explorer
+              </a>
+              <button
+                onClick={refreshTransactionHistory}
+                disabled={isLoadingTransactions}
+                className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+              >
+                {isLoadingTransactions ? 'Refreshing...' : 'Refresh History'}
+              </button>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card className="p-4 bg-yellow-50 border-yellow-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
-              <h4 className="font-medium text-blue-900">Business Wallet (Receiving Payments)</h4>
-              <p className="text-sm text-blue-700 font-mono">GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK</p>
-              <p className="text-xs text-blue-600">Customer coffee purchases will be sent to this address</p>
+              <h4 className="font-medium text-yellow-900">Connect Your Business Wallet</h4>
+              <p className="text-sm text-yellow-700">Connect your wallet to view business transactions and manage tokens</p>
+              <p className="text-xs text-yellow-600">Your transaction history will appear once connected</p>
             </div>
           </div>
-          <div className="flex flex-col space-y-2">
-            <a
-              href="https://testnet.steexp.com/account/GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-center"
-            >
-              View on Explorer
-            </a>
-            <button
-              onClick={refreshTransactionHistory}
-              disabled={isLoadingTransactions}
-              className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
-            >
-              {isLoadingTransactions ? 'Refreshing...' : 'Refresh History'}
-            </button>
-          </div>
-        </div>
-      </Card>
+        </Card>      )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Tokens</p>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(businessStats.totalTokensIssued)}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Coins className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center">
-            <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-sm text-green-600">+12.5%</span>
-            <span className="text-sm text-gray-500 ml-1">this month</span>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Customers</p>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(businessStats.activeCustomers)}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center">
-            <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-sm text-green-600">+8.2%</span>
-            <span className="text-sm text-gray-500 ml-1">this month</span>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Redeemed Tokens</p>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(businessStats.tokensRedeemed)}</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Gift className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center">
-            <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-sm text-green-600">+15.3%</span>
-            <span className="text-sm text-gray-500 ml-1">this month</span>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-              <p className="text-2xl font-bold text-gray-900">{businessStats.conversionRate}%</p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center">
-            <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-sm text-green-600">+2.1%</span>
-            <span className="text-sm text-gray-500 ml-1">this month</span>
-          </div>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Button 
-          onClick={handleCreateToken}
-          className="p-4 h-auto flex-col items-start text-left justify-start"
-        >
-          <Plus className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Create New Token</div>
-          <div className="text-sm opacity-90 font-normal">Create loyalty program tokens</div>
-        </Button>
-
-        <Button 
-          variant="outline"
-          onClick={handleDistributeTokens}
-          className="p-4 h-auto flex-col items-start text-left justify-start"
-        >
-          <CreditCard className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Distribute Tokens</div>
-          <div className="text-sm opacity-90 font-normal">Send tokens to customers</div>
-        </Button>
-
-        <Button 
-          variant="outline"
-          onClick={() => setSelectedTab('analytics')}
-          className="p-4 h-auto flex-col items-start text-left justify-start"
-        >
-          <BarChart3 className="w-6 h-6 mb-2" />
-          <div className="font-semibold">View Analytics</div>
-          <div className="text-sm opacity-90 font-normal">Review detailed reports</div>
-        </Button>
-      </div>      {/* Recent Transactions */}
+      {/* Recent Transactions */}
       <Card>
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Recent Transactions</h3>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={refreshTransactionHistory}
-              disabled={isLoadingTransactions}
-            >
-              {isLoadingTransactions ? 'Refreshing...' : 'Refresh'}
-            </Button>
+            {walletAddress && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refreshTransactionHistory}
+                disabled={isLoadingTransactions}
+              >
+                {isLoadingTransactions ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            )}
           </div>
-          {isLoadingTransactions ? (
+          
+          {!walletAddress ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-2">👛</div>
+              <h3 className="font-medium mb-2">Connect Your Wallet</h3>
+              <p className="text-sm">
+                Connect your business wallet to view transaction history and manage your loyalty program.
+              </p>
+              <div className="mt-4">
+                <Button onClick={async () => await requireWalletWithModal()}>
+                  Connect Wallet
+                </Button>
+              </div>
+            </div>
+          ) : isLoadingTransactions ? (
             <div className="animate-pulse flex flex-col space-y-4">
               <div className="h-4 bg-gray-200 rounded w-3/4"></div>
               <div className="h-4 bg-gray-200 rounded w-full"></div>
               <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            </div>          ) : (
+            </div>
+          ) : (
             <div className="space-y-4">
               {transactions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-2">📊</div>
                   <h3 className="font-medium mb-2">No Transactions Yet</h3>
                   <p className="text-sm">
-                    Customer payments to your business wallet will appear here.
+                    Transactions for your connected wallet will appear here.
                   </p>
-                  <p className="text-xs mt-2">
-                    Business Wallet: GBFHNS7...HMPDRLK
+                  <p className="text-xs mt-2 font-mono">
+                    Connected Wallet: {walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 8)}
                   </p>
                 </div>
               ) : (
                 transactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      transaction.type === 'issued' ? 'bg-green-100' : 'bg-blue-100'
-                    }`}>
-                      {transaction.type === 'issued' ? 
-                        <ArrowUpRight className="w-5 h-5 text-green-600" /> :
-                        <ArrowDownRight className="w-5 h-5 text-blue-600" />
-                      }
-                    </div>                    <div>
-                      <div className="font-medium">{transaction.description}</div>
-                      <div className="text-sm text-gray-500">{transaction.customer}</div>
-                      {transaction.customerAddress && (
-                        <div className="text-xs text-gray-400 font-mono">
-                          {transaction.customerAddress.substring(0, 8)}...{transaction.customerAddress.substring(transaction.customerAddress.length - 8)}
-                        </div>
-                      )}
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        transaction.type === 'issued' ? 'bg-green-100' : 'bg-blue-100'
+                      }`}>
+                        {transaction.type === 'issued' ? 
+                          <ArrowUpRight className="w-5 h-5 text-green-600" /> :
+                          <ArrowDownRight className="w-5 h-5 text-blue-600" />
+                        }
+                      </div>
+                      <div>
+                        <div className="font-medium">{transaction.description}</div>
+                        <div className="text-sm text-gray-500">{transaction.customer}</div>
+                        {transaction.customerAddress && (
+                          <div className="text-xs text-gray-400 font-mono">
+                            {transaction.customerAddress.substring(0, 8)}...{transaction.customerAddress.substring(transaction.customerAddress.length - 8)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-bold ${
+                        transaction.type === 'issued' ? 'text-green-600' : 'text-blue-600'
+                      }`}>
+                        {transaction.type === 'issued' ? '💰 +' : '📤 -'}{transaction.amount} XLM
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {transaction.type === 'issued' ? 'Payment Received' : 'Business Transaction'}
+                      </div>
+                      <div className="text-sm text-gray-500">{formatDate(transaction.timestamp)}</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={`font-bold ${
-                      transaction.type === 'issued' ? 'text-green-600' : 'text-blue-600'
-                    }`}>
-                      {transaction.type === 'issued' ? '💰 +' : '📤 -'}{transaction.amount} XLM
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {transaction.type === 'issued' ? 'Payment Received' : 'Business Transaction'}
-                    </div>
-                    <div className="text-sm text-gray-500">{formatDate(transaction.timestamp)}</div>
-                  </div>                </div>
-              ))
+                ))
               )}
-            </div>)}
+            </div>
+          )}
         </div>
-      </Card>
-
-      {/* Business Debug Panel */}
+      </Card>      {/* Business Debug Panel */}
       <Card className="bg-gray-50 border-gray-200">
         <div className="p-4">
           <h4 className="font-medium text-gray-700 mb-3">🏢 Business Debug Information</h4>
@@ -472,8 +306,10 @@ const BusinessDashboard: React.FC = () => {
               <p className="font-mono text-xs text-gray-800 break-all">{walletAddress || 'Not Connected'}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-600">Business Receiving Wallet:</span>
-              <p className="font-mono text-xs text-gray-800">GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK</p>
+              <span className="font-medium text-gray-600">Connection Status:</span>
+              <p className={`text-xs ${walletAddress ? 'text-green-600' : 'text-red-600'}`}>
+                {walletAddress ? '✅ Connected & Active' : '❌ Not Connected'}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-600">Network:</span>
@@ -481,124 +317,285 @@ const BusinessDashboard: React.FC = () => {
             </div>
             <div>
               <span className="font-medium text-gray-600">Transaction Count:</span>
-              <p className="text-gray-800">{transactions.length} transactions loaded</p>
+              <p className="text-gray-800">
+                {walletAddress ? `${transactions.length} transactions loaded` : 'Connect wallet to view'}
+              </p>
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-gray-200">
             <span className="font-medium text-gray-600">Business Operations:</span>
             <div className="flex flex-wrap gap-2 mt-2">
-              <a 
-                href="https://testnet.steexp.com/account/GBFHNS7DD2O3MS4LARWVQ7T6HG42FZTATJOSA4LZ5L5BXGRXHHMPDRLK"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
-              >
-                View Business Account
-              </a>
-              {walletAddress && (
-                <a 
-                  href={`https://testnet.steexp.com/account/${walletAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+              {walletAddress ? (
+                <>
+                  <a 
+                    href={`https://testnet.steexp.com/account/${walletAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                  >
+                    View Connected Wallet
+                  </a>
+                  <button
+                    onClick={refreshTransactionHistory}
+                    disabled={isLoadingTransactions}
+                    className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200"
+                  >
+                    Force Refresh History
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={async () => await requireWalletWithModal()}
+                  className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
                 >
-                  View Connected Wallet
-                </a>
+                  Connect Wallet
+                </button>
               )}
-              <button
-                onClick={refreshTransactionHistory}
-                disabled={isLoadingTransactions}
-                className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200"
-              >
-                Force Refresh History
-              </button>
             </div>
             <div className="mt-2 text-xs text-gray-600">
-              <p>💡 Tips: Customer payments to the business wallet will show as "issued" transactions.</p>
-              <p>📊 Transaction Type Mapping: Received = Issued Tokens | Sent = Redeemed/Business Expense</p>
+              <p>💡 Tips: Transaction history is specific to your connected wallet.</p>
+              <p>📊 Transaction Types: Received = Issued Tokens | Sent = Business Payments</p>
+              {!walletAddress && <p>🔗 Connect your business wallet to view real-time transaction data.</p>}
             </div>
           </div>
         </div>
       </Card>
     </div>
   );
-
   const renderTokens = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Token Management</h2>
-        <Button onClick={handleCreateToken}>
+        <Button onClick={handleCreateToken} disabled>
           <Plus className="w-4 h-4 mr-2" />
           Create New Token
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        {tokens.map((token) => (
-          <Card key={token.id} className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-                  <Coins className="w-6 h-6 text-primary-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">{token.name}</h3>
-                  <p className="text-gray-600">{token.symbol}</p>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
-                  <Eye className="w-4 h-4 mr-1" />
-                  View
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Settings className="w-4 h-4 mr-1" />
-                  Settings
-                </Button>
-              </div>
-            </div>
+      <Card className="p-8 text-center">
+        <div className="mb-4">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Coins className="w-8 h-8 text-blue-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Token Management</h3>
+          <p className="text-gray-600 mb-6">
+            Advanced token creation, distribution, and management features are coming soon...
+          </p>
+        </div>
+        
+        <div className="bg-gray-50 rounded-lg p-6 text-left">
+          <h4 className="font-medium text-gray-900 mb-3">🚀 Planned Features:</h4>
+          <ul className="space-y-2 text-sm text-gray-600">
+            <li className="flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+              Create custom loyalty tokens with unique properties
+            </li>
+            <li className="flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+              Distribute tokens to customers automatically or manually
+            </li>
+            <li className="flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+              Set up reward programs and redemption rules
+            </li>
+            <li className="flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+              Monitor token supply, circulation, and redemption rates
+            </li>
+            <li className="flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+              Configure earning rates and bonus multipliers
+            </li>
+          </ul>
+        </div>
 
-            <p className="text-gray-600 mb-4">{token.description}</p>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Total Supply</p>
-                <p className="font-semibold">{formatNumber(token.totalSupply)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Issued</p>
-                <p className="font-semibold">{formatNumber(token.issued)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Redeemed</p>
-                <p className="font-semibold">{formatNumber(token.redeemed)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Earning Rate</p>
-                <p className="font-semibold">{token.rate}x per $1</p>
-              </div>
-            </div>            <div className="mt-4 flex space-x-3">
-              <Button onClick={() => handleDistributeTokens(token.id)} className="flex-1">
-                Distribute Tokens
-              </Button>
-              <Button variant="outline" className="flex-1">
-                Create Reward
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderCustomers = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Customer Management</h2>
-      <Card className="p-6">
-        <p className="text-center text-gray-500">Customer management coming soon...</p>
+        <div className="mt-6">
+          <p className="text-sm text-gray-500">
+            💡 Meanwhile, you can track customer transactions and loyalty points in the 
+            <span className="font-medium"> Overview</span> tab.
+          </p>
+        </div>
       </Card>
     </div>
   );
+  const renderCustomers = () => {
+    // Extract unique customer addresses from transactions
+    const customerAddresses = transactions
+      .filter(tx => tx.type === 'issued' && tx.customerAddress) // Only incoming payments (customer purchases)
+      .reduce((acc, tx) => {
+        const address = tx.customerAddress;
+        if (!acc[address]) {
+          acc[address] = {
+            address,
+            totalPurchases: 0,
+            totalAmount: 0,
+            lastPurchase: tx.timestamp,
+            transactions: []
+          };
+        }
+        acc[address].totalPurchases += 1;
+        acc[address].totalAmount += tx.amount;
+        acc[address].transactions.push(tx);
+        // Keep the most recent purchase date
+        if (tx.timestamp > acc[address].lastPurchase) {
+          acc[address].lastPurchase = tx.timestamp;
+        }
+        return acc;
+      }, {} as Record<string, {
+        address: string;
+        totalPurchases: number;
+        totalAmount: number;
+        lastPurchase: Date;
+        transactions: Transaction[];
+      }>);
+
+    const customerList = Object.values(customerAddresses).sort((a, b) => 
+      b.lastPurchase.getTime() - a.lastPurchase.getTime()
+    );
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-semibold">Customer Management</h2>
+          <div className="text-sm text-gray-600">
+            {walletAddress ? `${customerList.length} customers found` : 'Connect wallet to view customers'}
+          </div>
+        </div>
+
+        {!walletAddress ? (
+          <Card className="p-8 text-center">
+            <div className="text-4xl mb-2">👥</div>
+            <h3 className="font-medium mb-2">Connect Your Wallet</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Connect your business wallet to view customer information and purchase history.
+            </p>
+            <Button onClick={async () => await requireWalletWithModal()}>
+              Connect Wallet
+            </Button>
+          </Card>
+        ) : customerList.length === 0 ? (
+          <Card className="p-8 text-center">
+            <div className="text-4xl mb-2">📊</div>
+            <h3 className="font-medium mb-2">No Customers Yet</h3>
+            <p className="text-sm text-gray-600">
+              Customer purchases will appear here once they make payments to your connected wallet.
+            </p>
+            <p className="text-xs mt-2 font-mono text-gray-500">
+              Connected Wallet: {walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 8)}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {/* Customer Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Customers</p>
+                    <p className="text-2xl font-bold text-blue-600">{customerList.length}</p>
+                  </div>
+                  <Users className="w-8 h-8 text-blue-600" />
+                </div>
+              </Card>
+              
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Purchases</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {customerList.reduce((sum, customer) => sum + customer.totalPurchases, 0)}
+                    </p>
+                  </div>
+                  <ArrowUpRight className="w-8 h-8 text-green-600" />
+                </div>
+              </Card>
+              
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Revenue</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {customerList.reduce((sum, customer) => sum + customer.totalAmount, 0).toFixed(2)} XLM
+                    </p>
+                  </div>
+                  <Coins className="w-8 h-8 text-purple-600" />
+                </div>
+              </Card>
+            </div>
+
+            {/* Customer List */}
+            <Card>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Customer List</h3>
+                <div className="space-y-4">
+                  {customerList.map((customer, index) => (
+                    <div key={customer.address} className="flex items-center justify-between py-4 border-b last:border-b-0">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold">#{index + 1}</span>
+                        </div>
+                        <div>
+                          <div className="font-mono text-sm font-medium">
+                            {customer.address.substring(0, 12)}...{customer.address.substring(customer.address.length - 12)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Customer ID: {customer.address.substring(0, 8)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Last purchase: {formatDate(customer.lastPurchase)}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className="text-lg font-semibold text-green-600">
+                          {customer.totalAmount.toFixed(2)} XLM
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {customer.totalPurchases} purchase{customer.totalPurchases !== 1 ? 's' : ''}
+                        </div>
+                        <div className="flex space-x-2 mt-2">
+                          <a
+                            href={`https://testnet.steexp.com/account/${customer.address}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                          >
+                            View Wallet
+                          </a>
+                          <button
+                            onClick={() => {
+                              console.log('Customer transactions:', customer.transactions);
+                              alert(`Customer: ${customer.address}\nTotal Purchases: ${customer.totalPurchases}\nTotal Amount: ${customer.totalAmount.toFixed(2)} XLM`);
+                            }}
+                            className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* Refresh Button */}
+            <div className="text-center">
+              <Button 
+                variant="outline" 
+                onClick={refreshTransactionHistory}
+                disabled={isLoadingTransactions}
+                className="px-6"
+              >
+                {isLoadingTransactions ? 'Refreshing...' : 'Refresh Customer Data'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderAnalytics = () => (
     <div className="space-y-6">
@@ -664,25 +661,7 @@ const BusinessDashboard: React.FC = () => {
                 </Button>
               </div>
             </Card>
-          </div>
-        )}
-
-        {showDistributeTokens && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 p-6">
-              <h3 className="text-lg font-semibold mb-4">Distribute Tokens</h3>
-              <p className="text-gray-600 mb-4">Token distribution form coming soon...</p>
-              <div className="flex space-x-3">
-                <Button variant="outline" onClick={() => setShowDistributeTokens(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={() => setShowDistributeTokens(false)} className="flex-1">
-                  Send
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
+          </div>        )}
       </div>
     </div>
   );
