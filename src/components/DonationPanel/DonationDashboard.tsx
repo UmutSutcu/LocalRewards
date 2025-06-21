@@ -167,15 +167,62 @@ export const DonationDashboard: React.FC = () => {
   const categories = ['all', 'Education', 'Animal Rights', 'Social Aid', 'Emergency', 'Health'];  const handleDonate = async () => {
     if (!selectedCampaign || !donationAmount) return;
 
+    console.log('handleDonate called, current address:', address);
+    
+    // If wallet is already connected, proceed immediately
+    if (address) {
+      console.log('Wallet already connected, proceeding with donation');
+      setIsDonating(true);
+      try {
+        // Simulate donation transaction
+        await new Promise(resolve => setTimeout(resolve, 2000));
+          const newDonation: DonationRecord = {
+          id: Date.now().toString(),
+          campaignId: selectedCampaign.id,
+          campaignTitle: selectedCampaign.title,
+          amount: parseFloat(donationAmount),
+          timestamp: new Date().toISOString(),
+          txHash: '0x' + Math.random().toString(16).substr(2, 8) + '...',
+          isAnonymous,
+          status: 'completed'
+        };
+        
+        setDonations(prev => [newDonation, ...prev]);
+        
+        // Update campaign amount
+        setCampaigns(prev => prev.map(campaign => 
+          campaign.id === selectedCampaign.id 
+            ? { 
+                ...campaign, 
+                currentAmount: campaign.currentAmount + parseFloat(donationAmount),
+                donorCount: campaign.donorCount + 1
+              }
+            : campaign
+        ));
+
+        setSelectedCampaign(null);
+        setDonationAmount('');
+        setIsAnonymous(false);
+      } catch (error) {
+        console.error('Donation failed:', error);
+      } finally {
+        setIsDonating(false);
+      }
+      return;
+    }
+
     // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
     const isWalletConnected = await requireWalletWithModal();
     if (!isWalletConnected) {
       // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending donation action');
       setPendingAction('donate');
       setPendingCampaign(selectedCampaign);
       return;
     }
 
+    // This shouldn't happen with current logic, but just in case
     setIsDonating(true);
     try {
       // Simulate donation transaction
@@ -373,15 +420,27 @@ export const DonationDashboard: React.FC = () => {
                 </div>
               </div>              <Button 
                 onClick={async () => {
+                  console.log('Donate button clicked, current address:', address);
+                  
+                  // If wallet is already connected, open donation modal immediately
+                  if (address) {
+                    console.log('Wallet already connected, opening donation modal');
+                    setSelectedCampaign(campaign);
+                    return;
+                  }
+                  
                   // Check wallet connection first
+                  console.log('Wallet not connected, showing modal');
                   const isWalletConnected = await requireWalletWithModal();
                   if (!isWalletConnected) {
                     // Modal was shown, set pending action to execute after wallet connects
+                    console.log('Modal shown, setting pending campaign selection');
                     setPendingAction('selectCampaign');
                     setPendingCampaign(campaign);
                     return;
                   }
-                  // Wallet is connected, open donation modal
+                  
+                  // This shouldn't happen with current logic, but just in case
                   setSelectedCampaign(campaign);
                 }}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"

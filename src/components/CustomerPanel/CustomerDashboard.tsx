@@ -62,36 +62,42 @@ const CustomerDashboard: React.FC = () => {
   const [pendingActionData, setPendingActionData] = useState<string | null>(null);
   const { requireWalletWithModal, address } = useWalletRequired();  // Auto-update wallet address and handle pending actions
   useEffect(() => {
+    console.log('useEffect triggered - address:', address, 'pendingAction:', pendingAction);
+    
     if (address) {
       setWalletAddress(address);
+      console.log('Wallet address updated:', address);
       
       // Execute pending action if any
       if (pendingAction) {
+        console.log('Executing pending action:', pendingAction, 'with data:', pendingActionData);
+        
         switch (pendingAction) {
           case 'earnTokens':
             if (pendingActionData) {
-              console.log('Earning tokens from:', pendingActionData);
+              console.log('Executing pending token earning for:', pendingActionData);
               // Execute earn tokens logic here
             }
             break;
           case 'redeemReward':
             if (pendingActionData) {
-              console.log('Redeeming reward:', pendingActionData);
+              console.log('Executing pending reward redemption for:', pendingActionData);
               // Execute redeem logic here
             }
             break;
           case 'scanQR':
+            console.log('Executing pending QR scan');
             setShowQRScanner(true);
             break;
         }
         // Clear pending actions
+        console.log('Clearing pending actions');
         setPendingAction(null);
         setPendingActionData(null);
       }
     }
   }, [address, pendingAction, pendingActionData]);
-
-  // Mock data - gerçek uygulamada API'den gelecek
+  // Mock data - will come from API in real application
   const tokenBalances: TokenBalance[] = [
     {
       tokenSymbol: 'COFFEE',
@@ -99,7 +105,7 @@ const CustomerDashboard: React.FC = () => {
       balance: 250,
       businessName: 'Stellar Coffee Co.',
       earnRate: 1,
-      businessLocation: 'İstanbul, Beşiktaş'
+      businessLocation: 'Istanbul, Besiktas'
     },
     {
       tokenSymbol: 'BOOKS',
@@ -107,7 +113,7 @@ const CustomerDashboard: React.FC = () => {
       balance: 180,
       businessName: 'Galaxy Books',
       earnRate: 2,
-      businessLocation: 'İstanbul, Kadıköy'
+      businessLocation: 'Istanbul, Kadikoy'
     },
     {
       tokenSymbol: 'PIZZA',
@@ -115,15 +121,15 @@ const CustomerDashboard: React.FC = () => {
       balance: 75,
       businessName: 'Cosmic Pizza',
       earnRate: 1.5,
-      businessLocation: 'İstanbul, Şişli'
+      businessLocation: 'Istanbul, Sisli'
     },
   ];
 
   const rewardOptions: RewardOption[] = [
     {
       id: '1',
-      title: 'Ücretsiz Kahve',
-      description: 'Seçtiğiniz orta boy kahve ücretsiz',
+      title: 'Free Coffee',
+      description: 'Free medium coffee of your choice',
       cost: 100,
       category: 'Beverage',
       businessName: 'Stellar Coffee Co.',
@@ -133,8 +139,8 @@ const CustomerDashboard: React.FC = () => {
     },
     {
       id: '2',
-      title: '%10 İndirim',
-      description: 'Bir sonraki kitap alımınızda %10 indirim',
+      title: '10% Discount',
+      description: '10% discount on your next book purchase',
       cost: 50,
       category: 'Discount',
       businessName: 'Galaxy Books',
@@ -144,8 +150,8 @@ const CustomerDashboard: React.FC = () => {
     },
     {
       id: '3',
-      title: 'Ücretsiz Pizza Dilimi',
-      description: 'Herhangi bir pizza siparişiyle ücretsiz dilim',
+      title: 'Free Pizza Slice',
+      description: 'Free slice with any pizza order',
       cost: 25,
       category: 'Food',
       businessName: 'Cosmic Pizza',
@@ -155,8 +161,8 @@ const CustomerDashboard: React.FC = () => {
     },
     {
       id: '4',
-      title: 'Premium Kahve Deneyimi',
-      description: 'Özel kahve çeşitleri ve latte art',
+      title: 'Premium Coffee Experience',
+      description: 'Special coffee varieties and latte art',
       cost: 200,
       category: 'Premium',
       businessName: 'Stellar Coffee Co.',
@@ -173,7 +179,7 @@ const CustomerDashboard: React.FC = () => {
       amount: 50,
       tokenSymbol: 'COFFEE',
       businessName: 'Stellar Coffee Co.',
-      description: 'Kahve satın alma',
+      description: 'Coffee purchase',
       timestamp: new Date(),
       status: 'completed'
     },
@@ -183,7 +189,7 @@ const CustomerDashboard: React.FC = () => {
       amount: 100,
       tokenSymbol: 'COFFEE',
       businessName: 'Stellar Coffee Co.',
-      description: 'Ücretsiz kahve ödülü',
+      description: 'Free coffee reward',
       timestamp: new Date(Date.now() - 3600000),
       status: 'completed'
     },
@@ -193,22 +199,39 @@ const CustomerDashboard: React.FC = () => {
       amount: 30,
       tokenSymbol: 'BOOKS',
       businessName: 'Galaxy Books',
-      description: 'Kitap satın alma',
+      description: 'Book purchase',
       timestamp: new Date(Date.now() - 7200000),
       status: 'completed'
     },
   ];
 
   const categories = ['all', 'Beverage', 'Food', 'Discount', 'Premium'];  const handleEarnTokens = async (businessId: string) => {
+    console.log('handleEarnTokens called, current address:', address, 'isConnected:', address ? 'yes' : 'no');
+    
+    // If wallet is already connected, proceed immediately
+    if (address) {
+      console.log('Wallet already connected, proceeding with token earning');
+      try {
+        console.log('Earning tokens from:', businessId);
+        // QR code scanning or manual token earning logic
+      } catch (error) {
+        console.error('Token earning failed:', error);
+      }
+      return;
+    }
+
     // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
     const isWalletConnected = await requireWalletWithModal();
     if (!isWalletConnected) {
       // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending action');
       setPendingAction('earnTokens');
       setPendingActionData(businessId);
       return;
     }
 
+    // This shouldn't happen with current logic, but just in case
     try {
       console.log('Earning tokens from:', businessId);
       // QR code scanning or manual token earning logic
@@ -216,17 +239,33 @@ const CustomerDashboard: React.FC = () => {
       console.error('Token earning failed:', error);
     }
   };
-
   const handleRedeemReward = async (rewardId: string) => {
+    console.log('handleRedeemReward called, current address:', address, 'isConnected:', address ? 'yes' : 'no');
+    
+    // If wallet is already connected, proceed immediately
+    if (address) {
+      console.log('Wallet already connected, proceeding with reward redemption');
+      try {
+        console.log('Redeeming reward:', rewardId);
+        // Reward redemption logic
+      } catch (error) {
+        console.error('Reward redemption failed:', error);
+      }
+      return;
+    }
+
     // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
     const isWalletConnected = await requireWalletWithModal();
     if (!isWalletConnected) {
       // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending action');
       setPendingAction('redeemReward');
       setPendingActionData(rewardId);
       return;
     }
 
+    // This shouldn't happen with current logic, but just in case
     try {
       console.log('Redeeming reward:', rewardId);
       // Reward redemption logic
@@ -257,9 +296,8 @@ const CustomerDashboard: React.FC = () => {
       {/* Token Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100">Toplam Token</p>
+          <div className="flex items-center justify-between">            <div>
+              <p className="text-blue-100">Total Tokens</p>
               <p className="text-3xl font-bold">{formatNumber(totalTokenValue)}</p>
             </div>
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
@@ -269,9 +307,8 @@ const CustomerDashboard: React.FC = () => {
         </Card>
 
         <Card className="p-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100">Kullanılabilir Ödül</p>
+          <div className="flex items-center justify-between">            <div>
+              <p className="text-green-100">Available Rewards</p>
               <p className="text-3xl font-bold">{rewardOptions.filter(r => r.isAvailable).length}</p>
             </div>
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
@@ -281,9 +318,8 @@ const CustomerDashboard: React.FC = () => {
         </Card>
 
         <Card className="p-6 bg-gradient-to-r from-orange-500 to-red-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100">Aktif İşletme</p>
+          <div className="flex items-center justify-between">            <div>
+              <p className="text-orange-100">Active Businesses</p>
               <p className="text-3xl font-bold">{tokenBalances.length}</p>
             </div>
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
@@ -296,14 +332,26 @@ const CustomerDashboard: React.FC = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">        <Button 
           onClick={async () => {
+            console.log('QR Scanner clicked, current address:', address);
+            
+            // If wallet is already connected, open QR scanner immediately
+            if (address) {
+              console.log('Wallet already connected, opening QR scanner');
+              setShowQRScanner(true);
+              return;
+            }
+            
             // Check wallet connection first
+            console.log('Wallet not connected, showing modal');
             const isWalletConnected = await requireWalletWithModal();
             if (!isWalletConnected) {
               // Modal was shown, set pending action to execute after wallet connects
+              console.log('Modal shown, setting pending QR action');
               setPendingAction('scanQR');
               return;
             }
-            // Wallet is connected, open QR scanner
+            
+            // This shouldn't happen with current logic, but just in case
             setShowQRScanner(true);
           }}
           className="p-4 h-auto flex-col items-start text-left justify-start bg-gradient-to-r from-purple-600 to-blue-600"
@@ -328,16 +376,15 @@ const CustomerDashboard: React.FC = () => {
           onClick={() => setSelectedTab('tokens')}
           className="p-4 h-auto flex-col items-start text-left justify-start"
         >
-          <Coins className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Token Yönetimi</div>
-          <div className="text-sm opacity-90 font-normal">Tüm tokenlarınızı görün</div>
+          <Coins className="w-6 h-6 mb-2" />          <div className="font-semibold">Token Management</div>
+          <div className="text-sm opacity-90 font-normal">View all your tokens</div>
         </Button>
       </div>
 
       {/* Featured Rewards */}
       <Card>
         <div className="p-6">
-          <h3 className="text-xl font-semibold mb-4">Öne Çıkan Ödüller</h3>
+          <h3 className="text-xl font-semibold mb-4">Featured Rewards</h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {rewardOptions.slice(0, 3).map((reward) => (
               <div key={reward.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -351,9 +398,8 @@ const CustomerDashboard: React.FC = () => {
                 <h4 className="font-semibold">{reward.title}</h4>
                 <p className="text-sm text-gray-600 mb-2">{reward.businessName}</p>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-primary-600">{reward.cost} tokens</span>
-                  <Button size="sm" onClick={() => handleRedeemReward(reward.id)}>
-                    Kullan
+                  <span className="font-bold text-primary-600">{reward.cost} tokens</span>                  <Button size="sm" onClick={() => handleRedeemReward(reward.id)}>
+                    Use
                   </Button>
                 </div>
               </div>
@@ -365,7 +411,7 @@ const CustomerDashboard: React.FC = () => {
       {/* Recent Activity */}
       <Card>
         <div className="p-6">
-          <h3 className="text-xl font-semibold mb-4">Son Aktiviteler</h3>
+          <h3 className="text-xl font-semibold mb-4">Recent Activities</h3>
           <div className="space-y-3">
             {recentTransactions.slice(0, 3).map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
@@ -393,9 +439,8 @@ const CustomerDashboard: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
-          <Button variant="outline" className="w-full mt-4" onClick={() => setSelectedTab('history')}>
-            Tüm İşlemleri Görüntüle
+          </div>          <Button variant="outline" className="w-full mt-4" onClick={() => setSelectedTab('history')}>
+            View All Transactions
           </Button>
         </div>
       </Card>
@@ -404,7 +449,7 @@ const CustomerDashboard: React.FC = () => {
 
   const renderTokens = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Token Bakiyelerim</h2>
+      <h2 className="text-2xl font-semibold">My Token Balances</h2>
       <div className="grid gap-6">
         {tokenBalances.map((token, index) => (
           <Card key={index} className="p-6">
@@ -417,7 +462,7 @@ const CustomerDashboard: React.FC = () => {
                   <h3 className="font-semibold text-xl">{token.tokenName}</h3>
                   <p className="text-gray-600 font-medium">{token.businessName}</p>
                   <div className="flex items-center space-x-4 mt-1">
-                    <p className="text-sm text-gray-500">Kazanç Oranı: {token.earnRate}x per $1</p>
+                    <p className="text-sm text-gray-500">Earn Rate: {token.earnRate}x per $1</p>
                     {token.businessLocation && (
                       <div className="flex items-center space-x-1">
                         <MapPin className="w-3 h-3 text-gray-400" />
@@ -432,10 +477,9 @@ const CustomerDashboard: React.FC = () => {
                   {formatNumber(token.balance)}
                 </div>
                 <div className="text-sm text-gray-500">{token.tokenSymbol}</div>
-                <div className="mt-2">
-                  <Button size="sm" onClick={() => handleEarnTokens(token.tokenSymbol)}>
+                <div className="mt-2">                  <Button size="sm" onClick={() => handleEarnTokens(token.tokenSymbol)}>
                     <Zap className="w-3 h-3 mr-1" />
-                    Token Kazan
+                    Earn Tokens
                   </Button>
                 </div>
               </div>
@@ -449,14 +493,13 @@ const CustomerDashboard: React.FC = () => {
   const renderRewards = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h2 className="text-2xl font-semibold">Kullanılabilir Ödüller</h2>
+        <h2 className="text-2xl font-semibold">Available Rewards</h2>
         
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
-              type="text"
-              placeholder="Ödül ara..."
+              type="text"              placeholder="Search rewards..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -470,7 +513,7 @@ const CustomerDashboard: React.FC = () => {
           >
             {categories.map(category => (
               <option key={category} value={category}>
-                {category === 'all' ? 'Tüm Kategoriler' : category}
+                {category === 'all' ? 'All Categories' : category}
               </option>
             ))}
           </select>
@@ -491,9 +534,8 @@ const CustomerDashboard: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-lg">{reward.title}</h3>
-                  {reward.discount && (
-                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">
-                      %{reward.discount} İndirim
+                  {reward.discount && (                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">
+                      {reward.discount}% Discount
                     </span>
                   )}
                 </div>
@@ -505,10 +547,9 @@ const CustomerDashboard: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">
                     {reward.category}
-                  </span>
-                  {reward.isAvailable && (
+                  </span>                  {reward.isAvailable && (
                     <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
-                      Mevcut
+                      Available
                     </span>
                   )}
                 </div>
@@ -527,9 +568,8 @@ const CustomerDashboard: React.FC = () => {
               <Button 
                 onClick={() => handleRedeemReward(reward.id)}
                 disabled={!reward.isAvailable}
-                className="w-full"
-              >
-                {reward.isAvailable ? 'Hemen Kullan' : 'Mevcut Değil'}
+                className="w-full"              >
+                {reward.isAvailable ? 'Use Now' : 'Not Available'}
               </Button>
             </div>
           </Card>
@@ -538,9 +578,8 @@ const CustomerDashboard: React.FC = () => {
 
       {filteredRewards.length === 0 && (
         <Card className="p-8 text-center">
-          <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">Ödül Bulunamadı</h3>
-          <p className="text-gray-500">Arama kriterlerinize uygun ödül bulunmuyor.</p>
+          <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />          <h3 className="text-lg font-medium text-gray-600 mb-2">No Rewards Found</h3>
+          <p className="text-gray-500">No rewards match your search criteria.</p>
         </Card>
       )}
     </div>
@@ -548,7 +587,7 @@ const CustomerDashboard: React.FC = () => {
 
   const renderHistory = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">İşlem Geçmişi</h2>
+      <h2 className="text-2xl font-semibold">Transaction History</h2>
       <Card>
         <div className="p-6">
           <div className="space-y-4">
@@ -572,7 +611,7 @@ const CustomerDashboard: React.FC = () => {
                       <span className={`text-xs px-2 py-1 rounded ${
                         transaction.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {transaction.status === 'completed' ? 'Tamamlandı' : 'Bekliyor'}
+                        {transaction.status === 'completed' ? 'Completed' : 'Pending'}
                       </span>
                     </div>
                   </div>
@@ -597,19 +636,17 @@ const CustomerDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Müşteri Paneli</h1>
-          <p className="text-gray-600">Token'larınızı yönetin, ödülleri keşfedin ve yerel işletmeleri destekleyin</p>
+        <div className="mb-8">          <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Panel</h1>
+          <p className="text-gray-600">Manage your tokens, discover rewards and support local businesses</p>
         </div>
 
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'overview', label: 'Genel Bakış', icon: TrendingUp },
-              { id: 'tokens', label: 'Tokenlarım', icon: Coins },
-              { id: 'rewards', label: 'Ödüller', icon: Gift },
-              { id: 'history', label: 'Geçmiş', icon: Clock },
+          <nav className="-mb-px flex space-x-8">            {[
+              { id: 'overview', label: 'Overview', icon: TrendingUp },
+              { id: 'tokens', label: 'My Tokens', icon: Coins },
+              { id: 'rewards', label: 'Rewards', icon: Gift },
+              { id: 'history', label: 'History', icon: Clock },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -636,21 +673,20 @@ const CustomerDashboard: React.FC = () => {
         {/* QR Scanner Modal */}
         {showQRScanner && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 p-6">
-              <h3 className="text-lg font-semibold mb-4">QR Kod Tara</h3>
+            <Card className="max-w-md w-full mx-4 p-6">              <h3 className="text-lg font-semibold mb-4">Scan QR Code</h3>
               <div className="bg-gray-100 h-64 rounded-lg flex items-center justify-center mb-4">
                 <div className="text-center text-gray-500">
                   <QrCode className="w-16 h-16 mx-auto mb-2" />
-                  <p>Kamera görünümü burada olacak</p>
-                  <p className="text-sm">Kamerayı işletme QR koduna yönlendirin</p>
+                  <p>Camera view will be here</p>
+                  <p className="text-sm">Point the camera at the business QR code</p>
                 </div>
               </div>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={() => setShowQRScanner(false)} className="flex-1">
-                  İptal
+                  Cancel
                 </Button>
                 <Button onClick={() => setShowQRScanner(false)} className="flex-1">
-                  Tamamla
+                  Complete
                 </Button>
               </div>
             </Card>

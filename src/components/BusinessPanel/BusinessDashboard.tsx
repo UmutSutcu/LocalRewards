@@ -103,28 +103,50 @@ const BusinessDashboard: React.FC = () => {
       description: 'Coffee shop reward tokens'
     }
   ];  const handleCreateToken = async () => {
+    console.log('handleCreateToken called, current address:', address);
+    
+    // If wallet is already connected, proceed immediately
+    if (address) {
+      console.log('Wallet already connected, opening token creation dialog');
+      setShowCreateToken(true);
+      return;
+    }
+    
     // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
     const isWalletConnected = await requireWalletWithModal();
     if (!isWalletConnected) {
       // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending create token action');
       setPendingAction('createToken');
       return;
     }
     
-    // Wallet is connected, proceed with token creation
+    // This shouldn't happen with current logic, but just in case
     setShowCreateToken(true);
   };
 
   const handleDistributeTokens = async () => {
+    console.log('handleDistributeTokens called, current address:', address);
+    
+    // If wallet is already connected, proceed immediately
+    if (address) {
+      console.log('Wallet already connected, opening token distribution dialog');
+      setShowDistributeTokens(true);
+      return;
+    }
+    
     // Check wallet connection first
+    console.log('Wallet not connected, showing modal');
     const isWalletConnected = await requireWalletWithModal();
     if (!isWalletConnected) {
       // Modal was shown, set pending action to execute after wallet connects
+      console.log('Modal shown, setting pending distribute tokens action');
       setPendingAction('distributeTokens');
       return;
     }
     
-    // Wallet is connected, proceed with token distribution
+    // This shouldn't happen with current logic, but just in case
     setShowDistributeTokens(true);
   };
 
@@ -220,17 +242,15 @@ const BusinessDashboard: React.FC = () => {
             <span className="text-sm text-gray-500 ml-1">this month</span>
           </div>
         </Card>
-      </div>
-
-      {/* Quick Actions */}
+      </div>      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Button 
           onClick={handleCreateToken}
           className="p-4 h-auto flex-col items-start text-left justify-start"
         >
           <Plus className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Yeni Token Oluştur</div>
-          <div className="text-sm opacity-90 font-normal">Sadakat programı token'ı oluşturun</div>
+          <div className="font-semibold">Create New Token</div>
+          <div className="text-sm opacity-90 font-normal">Create loyalty program tokens</div>
         </Button>
 
         <Button 
@@ -239,8 +259,8 @@ const BusinessDashboard: React.FC = () => {
           className="p-4 h-auto flex-col items-start text-left justify-start"
         >
           <CreditCard className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Token Dağıt</div>
-          <div className="text-sm opacity-90 font-normal">Müşterilere token gönderin</div>
+          <div className="font-semibold">Distribute Tokens</div>
+          <div className="text-sm opacity-90 font-normal">Send tokens to customers</div>
         </Button>
 
         <Button 
@@ -249,15 +269,15 @@ const BusinessDashboard: React.FC = () => {
           className="p-4 h-auto flex-col items-start text-left justify-start"
         >
           <BarChart3 className="w-6 h-6 mb-2" />
-          <div className="font-semibold">Analitikleri Görüntüle</div>
-          <div className="text-sm opacity-90 font-normal">Detaylı raporları inceleyin</div>
+          <div className="font-semibold">View Analytics</div>
+          <div className="text-sm opacity-90 font-normal">Review detailed reports</div>
         </Button>
       </div>
 
       {/* Recent Transactions */}
       <Card>
         <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Son İşlemler</h3>
+          <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
           <div className="space-y-4">
             {recentTransactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
@@ -293,11 +313,10 @@ const BusinessDashboard: React.FC = () => {
 
   const renderTokens = () => (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Token Yönetimi</h2>
+      <div className="flex justify-between items-center">        <h2 className="text-2xl font-semibold">Token Management</h2>
         <Button onClick={handleCreateToken}>
           <Plus className="w-4 h-4 mr-2" />
-          Yeni Token Oluştur
+          Create New Token
         </Button>
       </div>
 
@@ -314,45 +333,42 @@ const BusinessDashboard: React.FC = () => {
                   <p className="text-gray-600">{token.symbol}</p>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
+              <div className="flex space-x-2">                <Button variant="outline" size="sm">
                   <Eye className="w-4 h-4 mr-1" />
-                  Görüntüle
+                  View
                 </Button>
                 <Button variant="outline" size="sm">
                   <Settings className="w-4 h-4 mr-1" />
-                  Ayarlar
+                  Settings
                 </Button>
               </div>
             </div>
 
             <p className="text-gray-600 mb-4">{token.description}</p>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Toplam Arz</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">              <div>
+                <p className="text-sm text-gray-500">Total Supply</p>
                 <p className="font-semibold">{formatNumber(token.totalSupply)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Dağıtılan</p>
+                <p className="text-sm text-gray-500">Issued</p>
                 <p className="font-semibold">{formatNumber(token.issued)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Kullanılan</p>
+                <p className="text-sm text-gray-500">Redeemed</p>
                 <p className="font-semibold">{formatNumber(token.redeemed)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Kazanç Oranı</p>
+                <p className="text-sm text-gray-500">Earning Rate</p>
                 <p className="font-semibold">{token.rate}x per $1</p>
               </div>
             </div>
 
-            <div className="mt-4 flex space-x-3">
-              <Button onClick={handleDistributeTokens} className="flex-1">
-                Token Dağıt
+            <div className="mt-4 flex space-x-3">              <Button onClick={handleDistributeTokens} className="flex-1">
+                Distribute Tokens
               </Button>
               <Button variant="outline" className="flex-1">
-                Ödül Oluştur
+                Create Reward
               </Button>
             </div>
           </Card>
@@ -362,19 +378,17 @@ const BusinessDashboard: React.FC = () => {
   );
 
   const renderCustomers = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Müşteri Yönetimi</h2>
+    <div className="space-y-6">      <h2 className="text-2xl font-semibold">Customer Management</h2>
       <Card className="p-6">
-        <p className="text-center text-gray-500">Müşteri yönetimi yakında geliyor...</p>
+        <p className="text-center text-gray-500">Customer management coming soon...</p>
       </Card>
     </div>
   );
 
   const renderAnalytics = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Analitikler</h2>
+    <div className="space-y-6">      <h2 className="text-2xl font-semibold">Analytics</h2>
       <Card className="p-6">
-        <p className="text-center text-gray-500">Detaylı analitikler yakında geliyor...</p>
+        <p className="text-center text-gray-500">Detailed analytics coming soon...</p>
       </Card>
     </div>
   );
@@ -383,19 +397,17 @@ const BusinessDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">İşletme Paneli</h1>
-          <p className="text-gray-600">Sadakat programınızı yönetin ve müşteri etkileşimlerini takip edin</p>
+        <div className="mb-8">          <h1 className="text-3xl font-bold text-gray-900 mb-2">Business Dashboard</h1>
+          <p className="text-gray-600">Manage your loyalty program and track customer interactions</p>
         </div>
 
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'overview', label: 'Genel Bakış', icon: BarChart3 },
-              { id: 'tokens', label: 'Token Yönetimi', icon: Coins },
-              { id: 'customers', label: 'Müşteriler', icon: Users },
-              { id: 'analytics', label: 'Analitikler', icon: TrendingUp },
+          <nav className="-mb-px flex space-x-8">            {[
+              { id: 'overview', label: 'Overview', icon: BarChart3 },
+              { id: 'tokens', label: 'Token Management', icon: Coins },
+              { id: 'customers', label: 'Customers', icon: Users },
+              { id: 'analytics', label: 'Analytics', icon: TrendingUp },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -422,15 +434,14 @@ const BusinessDashboard: React.FC = () => {
         {/* Modals */}
         {showCreateToken && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 p-6">
-              <h3 className="text-lg font-semibold mb-4">Yeni Token Oluştur</h3>
-              <p className="text-gray-600 mb-4">Token oluşturma formu yakında geliyor...</p>
+            <Card className="max-w-md w-full mx-4 p-6">              <h3 className="text-lg font-semibold mb-4">Create New Token</h3>
+              <p className="text-gray-600 mb-4">Token creation form coming soon...</p>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={() => setShowCreateToken(false)} className="flex-1">
-                  İptal
+                  Cancel
                 </Button>
                 <Button onClick={() => setShowCreateToken(false)} className="flex-1">
-                  Oluştur
+                  Create
                 </Button>
               </div>
             </Card>
@@ -439,15 +450,14 @@ const BusinessDashboard: React.FC = () => {
 
         {showDistributeTokens && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 p-6">
-              <h3 className="text-lg font-semibold mb-4">Token Dağıt</h3>
-              <p className="text-gray-600 mb-4">Token dağıtım formu yakında geliyor...</p>
+            <Card className="max-w-md w-full mx-4 p-6">              <h3 className="text-lg font-semibold mb-4">Distribute Tokens</h3>
+              <p className="text-gray-600 mb-4">Token distribution form coming soon...</p>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={() => setShowDistributeTokens(false)} className="flex-1">
-                  İptal
+                  Cancel
                 </Button>
                 <Button onClick={() => setShowDistributeTokens(false)} className="flex-1">
-                  Gönder
+                  Send
                 </Button>
               </div>
             </Card>

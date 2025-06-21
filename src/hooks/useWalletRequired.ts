@@ -14,12 +14,23 @@ export const useWalletRequired = () => {
    * Returns true if wallet is connected, false if modal was shown
    */
   const requireWalletWithModal = async (): Promise<boolean> => {
+    console.log('requireWalletWithModal called - isConnected:', isConnected, 'address:', address, 'isFreighterInstalled:', isFreighterInstalled);
+    
     // If already connected and has address, return true immediately
     if (isConnected && address) {
+      console.log('Wallet already connected, returning true');
       return true;
     }
     
-    // Not connected, show modal for user to connect
+    // Check if Freighter is installed before showing modal
+    if (!isFreighterInstalled) {
+      console.warn('Freighter not installed, showing modal');
+      setShowWalletModal(true);
+      return false;
+    }
+    
+    // Not connected but Freighter is available, show modal for user to connect
+    console.log('Wallet not connected, showing modal');
     setShowWalletModal(true);
     return false;
   };

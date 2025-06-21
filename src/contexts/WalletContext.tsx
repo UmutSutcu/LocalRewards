@@ -65,10 +65,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     };
 
     initializeWallet();
-  }, []);
-  const connectWallet = async () => {
+  }, []);  const connectWallet = async () => {
     if (!isFreighterInstalled) {
-      throw new Error('Freighter wallet is not installed. Please install it first.');
+      // Don't throw error, let the modal handle the Freighter installation flow
+      console.warn('Freighter wallet is not installed');
+      return;
     }
 
     await connectWithFreighter();
