@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { WalletState } from '@/types';
-import passkeyWalletService from '@/services/passkeyService';
-import freighterService from '@/services/freighterService';
-import stellarService from '@/services/stellarService';
+import { WalletState } from '../types';
+import passkeyWalletService from '../services/passkeyService';
+import freighterService from '../services/freighterService';
+import stellarService from '../services/stellarService';
 
 export const useWallet = () => {
   const [walletState, setWalletState] = useState<WalletState>({

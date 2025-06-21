@@ -1,7 +1,7 @@
 {
-  "name": "stellar-local-rewards",
+  "name": "stellar-freelance",
   "version": "1.0.0",
-  "description": "Modern token-based loyalty program and micro-donation platform on Stellar blockchain",
+  "description": "Stellar-based P2P Freelance Marketplace with Escrow & Reputation System",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -43,12 +43,14 @@
     "typescript-eslint": "^8.34.1",
     "vite": "^5.0.0",
     "vitest": "^1.0.0"
-  },
-  "keywords": [
+  },  "keywords": [
     "stellar",
     "blockchain",
-    "loyalty",
-    "rewards",
+    "freelance",
+    "escrow",
+    "reputation",
+    "p2p",
+    "marketplace",
     "soroban",
     "smart-contracts",
     "passkey",

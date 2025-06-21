@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { WalletProvider, useWalletContext } from './contexts/WalletContext';
-import EmployerDashboard from './components/EmployerPanel/EmployerDashboard.tsx';
-import FreelancerDashboard from './components/FreelancerPanel/FreelancerDashboard.tsx';
+import EmployerDashboard from './components/EmployerPanel/EmployerDashboard';
+import FreelancerDashboard from './components/FreelancerPanel/FreelancerDashboard';
 import WalletModal from './components/Shared/WalletModal';
 import { Wallet, User, Briefcase, Star } from 'lucide-react';
 
@@ -14,13 +14,14 @@ function AppContent() {
   const handleUserTypeSelection = (type: UserType) => {
     setSelectedUserType(type);
   };
-
   const renderSelectedPanel = () => {
     switch (selectedUserType) {
-      case 'employer':
-        return <EmployerDashboard />;
-      case 'freelancer':
-        return <FreelancerDashboard />;
+      case 'business':
+        return <BusinessDashboard />;
+      case 'customer':
+        return <CustomerDashboard />;
+      case 'donor':
+        return <DonationDashboard />;
       default:
         return renderLandingPage();
     }
@@ -33,22 +34,20 @@ function AppContent() {
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-6">
             <div className="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center">
-              <Star className="w-8 h-8 text-white" />
+              <Heart className="w-8 h-8 text-white" />
             </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            StellarFreelance
+          </div>          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            StellarLocalRewards
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Stellar blockchain-based P2P freelance marketplace with escrow & reputation system. 
-            Secure payments, transparent reputation tokens, and decentralized job matching.
+            Stellar blockchain-based local loyalty program and micro-donation platform. 
+            Explore without wallet connection, connect only for transactions.
           </p>
         </div>
 
         {/* Wallet Status */}
         {isConnected && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
-            <div className="flex items-center justify-center space-x-2">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">            <div className="flex items-center justify-center space-x-2">
               <Wallet className="w-5 h-5 text-green-600" />
               <span className="text-green-800 font-medium">
                 Wallet Connected: {address?.substring(0, 8)}...{address?.substring(-8)}
@@ -58,39 +57,54 @@ function AppContent() {
         )}
 
         {/* User Type Selection */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6">
           <div 
             className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-primary-500"
-            onClick={() => handleUserTypeSelection('employer')}
+            onClick={() => handleUserTypeSelection('business')}
           >
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Briefcase className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Employer</h3>
+                <Building2 className="w-8 h-8 text-blue-600" />
+              </div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">Business</h3>
               <p className="text-gray-600 mb-4">
-                Post jobs, hire talented freelancers, and manage projects with secure escrow payments.
+                Create and manage customer loyalty programs. Distribute tokens, increase customer loyalty.
               </p>
               <div className="text-sm text-blue-600 font-medium">
-                Job posting • Escrow management • Talent hiring
+                Loyalty programs, Token management, Customer analytics
               </div>
             </div>
           </div>
 
           <div 
             className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-primary-500"
-            onClick={() => handleUserTypeSelection('freelancer')}
+            onClick={() => handleUserTypeSelection('customer')}
           >
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Freelancer</h3>
+              </div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">Customer</h3>
               <p className="text-gray-600 mb-4">
-                Find great projects, build your reputation with SBT tokens, and get paid securely.
+                Earn tokens by shopping, discover and use rewards. Support local businesses.
               </p>
               <div className="text-sm text-green-600 font-medium">
-                Job browsing • Reputation building • Secure payments
+                Token earning, Reward redemption, Local support
+              </div>
+            </div>
+          </div>
+
+          <div 
+            className="bg-white rounded-xl shadow-lg p-8 cursor-pointer hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-primary-500"
+            onClick={() => handleUserTypeSelection('donor')}
+          >
+            <div className="text-center">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Heart className="w-8 h-8 text-purple-600" />
+              </div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">Donor</h3>
+              <p className="text-gray-600 mb-4">
+                Make micro-donations to social responsibility projects. Transparent and secure donation system.
+              </p>
+              <div className="text-sm text-purple-600 font-medium">
+                Micro-donations, Transparency, Social impact
               </div>
             </div>
           </div>
@@ -99,14 +113,13 @@ function AppContent() {
         {/* Features */}
         <div className="mt-12 text-center">
           <p className="text-gray-500 text-sm">
-            🔗 Stellar Blockchain • 🔐 Smart Contract Escrow • ⭐ Soulbound Reputation Tokens • 💼 P2P Marketplace
+            🔗 Stellar Blockchain • 🔐 Passkey Auth • ⚡ Launchtube Paymaster • 💼 Smart Contracts
           </p>
         </div>
 
         {/* Back button for selected user type */}
         {selectedUserType && (
-          <div className="mt-8 text-center">
-            <button
+          <div className="mt-8 text-center">            <button
               onClick={() => setSelectedUserType(null)}
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
@@ -125,8 +138,7 @@ function AppContent() {
       {/* Wallet Modal */}
       <WalletModal
         isOpen={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
-        title="Wallet Connection Required"
+        onClose={() => setShowWalletModal(false)}        title="Wallet Connection Required"
         description="You need to connect your wallet to perform this transaction."
       />
     </div>

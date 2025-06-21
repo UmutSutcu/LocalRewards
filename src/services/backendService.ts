@@ -5,7 +5,7 @@ import {
   CommunityProject, 
   Transaction,
   LoyaltyToken 
-} from '@/types';
+} from '../types';
 
 // Local types for API responses
 interface User {

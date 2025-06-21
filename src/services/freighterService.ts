@@ -1,5 +1,5 @@
-import { FreighterApi } from '@/types';
-import { freighterDetector } from '@/utils/freighterDetection';
+import { FreighterApi } from '../types';
+import { freighterDetector } from '../utils/freighterDetection';
 
 class FreighterWalletService {
   private freighterApi: FreighterApi | null = null;

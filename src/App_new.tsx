@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { WalletProvider, useWalletContext } from './contexts/WalletContext';
-import EmployerDashboard from './components/EmployerPanel/EmployerDashboard.tsx';
-import FreelancerDashboard from './components/FreelancerPanel/FreelancerDashboard.tsx';
+import EmployerDashboard from './components/EmployerPanel/EmployerDashboard';
+import FreelancerDashboard from './components/FreelancerPanel/FreelancerDashboard';
 import WalletModal from './components/Shared/WalletModal';
 import { Wallet, User, Briefcase, Star } from 'lucide-react';
 
