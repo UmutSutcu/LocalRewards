@@ -5,14 +5,14 @@ import escrowService, { EscrowData } from '../../services/escrowService';
 import Button from '../Shared/Button';
 import Card from '../Shared/Card';
 import WalletConnection from '../Shared/WalletConnection';
-import { Plus, Briefcase, Clock, CheckCircle, DollarSign, Shield, Star } from 'lucide-react';
+import { Plus, Briefcase, Clock, CheckCircle, Shield, Star } from 'lucide-react';
 
 interface Job {
   id: string;
   title: string;
   description: string;
   budget: number;
-  currency: 'XLM' | 'USDC';
+  currency: 'XLM'; // Only XLM supported
   status: 'open' | 'in_progress' | 'completed' | 'cancelled' | 'disputed';
   selectedFreelancer?: string;
   createdAt: Date;
@@ -37,12 +37,11 @@ export default function EmployerDashboard() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedApplicationForRating, setSelectedApplicationForRating] = useState<any | null>(null);
   const [selectedRating, setSelectedRating] = useState(5);
-  const [ratingComment, setRatingComment] = useState('');
-  const [newJob, setNewJob] = useState({
+  const [ratingComment, setRatingComment] = useState('');  const [newJob, setNewJob] = useState({
     title: '',
     description: '',
     budget: 0,
-    currency: 'USDC' as 'XLM' | 'USDC',
+    currency: 'XLM' as 'XLM', // Only XLM supported
     requirements: [] as string[],
     tags: [] as string[],
   });
@@ -149,12 +148,11 @@ export default function EmployerDashboard() {
         // Reload jobs and escrow data
         await loadJobs();
         await loadEscrowData();
-        
-        setNewJob({ 
+          setNewJob({ 
           title: '', 
           description: '', 
           budget: 0, 
-          currency: 'USDC',
+          currency: 'XLM',
           requirements: [],
           tags: []
         });
@@ -363,26 +361,7 @@ Continue?`;
       }
     } catch (error) {
       console.error('Error approving completion:', error);
-      alert('❌ Failed to approve completion. Please try again.');
-    }
-  };
-
-  // Update job status
-  const handleUpdateJobStatus = async (jobId: string, newStatus: Job['status']) => {
-    try {
-      const result = await jobService.updateJobStatus(jobId, newStatus);
-      if (result.status === 'success') {
-        await loadJobs(); // Reload jobs to update status
-        if (selectedJob && selectedJob.id === jobId) {
-          setSelectedJob({ ...selectedJob, status: newStatus });
-        }
-      } else {
-        alert('Failed to update job status: ' + result.message);
-      }
-    } catch (error) {
-      console.error('Error updating job status:', error);
-      alert('Failed to update job status. Please try again.');
-    }
+      alert('❌ Failed to approve completion. Please try again.');    }
   };
 
   // Cancel job and refund escrow
@@ -513,26 +492,24 @@ Continue?`;
                 </p>
               </div>
             </div>
-          </Card>
-          <Card className="p-6">
+          </Card>          <Card className="p-6">
             <div className="flex items-center">
               <Shield className="w-8 h-8 text-blue-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Locked Escrow</p>
+                <p className="text-sm font-medium text-gray-600">Reserved (XLM)</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {escrowStats.totalLocked.toFixed(1)}
+                  {escrowStats.totalLocked.toFixed(1)} XLM
                 </p>
-                <p className="text-xs text-gray-500">{escrowStats.activEscrows} active</p>
+                <p className="text-xs text-gray-500">{escrowStats.activEscrows} active escrows</p>
               </div>
             </div>
-          </Card>
-          <Card className="p-6">
+          </Card><Card className="p-6">
             <div className="flex items-center">
-              <DollarSign className="w-8 h-8 text-purple-600" />
+              <CheckCircle className="w-8 h-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Released</p>
+                <p className="text-sm font-medium text-gray-600">Total Paid (XLM)</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {escrowStats.totalReleased.toFixed(1)}
+                  {escrowStats.totalReleased.toFixed(1)} XLM
                 </p>
                 <p className="text-xs text-gray-500">{escrowStats.completedEscrows} payments</p>
               </div>
@@ -721,11 +698,11 @@ Continue?`;
                     <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
                     <select
                       value={newJob.currency}
-                      onChange={(e) => setNewJob({ ...newJob, currency: e.target.value as 'XLM' | 'USDC' })}
+                      onChange={() => setNewJob({ ...newJob, currency: 'XLM' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled
                     >
-                      <option value="USDC">USDC</option>
-                      <option value="XLM">XLM</option>
+                      <option value="XLM">XLM (Only supported currency)</option>
                     </select>
                   </div>
                 </div>

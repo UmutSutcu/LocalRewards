@@ -11,15 +11,14 @@ class JobService {
 
   constructor() {
     this.server = new StellarSdk.Horizon.Server(STELLAR_CONFIG.horizonUrl);
-  }
-  /**
+  }  /**
    * Create a new job and store it on Stellar blockchain
    */
   async createJob(jobData: {
     title: string;
     description: string;
     budget: number;
-    currency: 'XLM' | 'USDC';
+    currency: 'XLM'; // Only XLM supported
     requirements?: string[];
     deadline?: Date;
     tags?: string[];
@@ -27,6 +26,11 @@ class JobService {
     try {
       const userPublicKey = await freighterApi.getPublicKey();
       const account = await this.server.loadAccount(userPublicKey);
+
+      // Only XLM is supported
+      if (jobData.currency !== 'XLM') {
+        throw new Error('Only XLM currency is supported');
+      }
 
       // Generate short unique job ID (keep it minimal for Stellar data limits)
       const timestamp = Date.now().toString(36); // Base36 for shorter string
@@ -68,12 +72,17 @@ class JobService {
         networkPassphrase: STELLAR_CONFIG.networkPassphrase,
       });
 
-      const signedTx = StellarSdk.TransactionBuilder.fromXDR(result, STELLAR_CONFIG.networkPassphrase);      const submitResult = await this.server.submitTransaction(signedTx);      // Create escrow for the job - lock employer's funds
+      const signedTx = StellarSdk.TransactionBuilder.fromXDR(result, STELLAR_CONFIG.networkPassphrase);
+      const submitResult = await this.server.submitTransaction(signedTx);
+
+      console.log(`📋 Job ${jobId} created on-chain, creating escrow for ${jobData.budget} XLM...`);
+
+      // Create escrow for the job - lock employer's funds (XLM only)
       const escrowResult = await escrowService.createEscrow(
         jobId,
         userPublicKey,
         jobData.budget,
-        jobData.currency
+        'XLM'
       );
 
       if (escrowResult.status !== 'success') {
@@ -82,16 +91,19 @@ class JobService {
         throw new Error(`Escrow creation failed: ${escrowResult.message}`);
       }
 
+      console.log(`✅ Job ${jobId} created with escrow ${escrowResult.escrowId}`);
+
       // Store job data with escrow contract ID
       const job: Partial<Job> = {
         id: jobId,
         title: jobData.title,
         description: jobData.description,
         budget: jobData.budget,
-        currency: jobData.currency,
+        currency: 'XLM', // Always XLM
         employerAddress: userPublicKey,
         status: 'open',
-        createdAt: new Date(),        updatedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
         requirements: jobData.requirements || [],
         deadline: jobData.deadline,
         tags: jobData.tags || [],

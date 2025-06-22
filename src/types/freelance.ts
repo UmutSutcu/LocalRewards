@@ -30,7 +30,7 @@ export interface FreelancerProfile extends UserProfile {
   bio?: string;
   skills: string[];
   hourlyRate?: number;
-  preferredCurrency: 'XLM' | 'USDC';
+  preferredCurrency: 'XLM'; // Only XLM supported
   reputationTokens: ReputationToken[];
   totalEarnings: number;
   completedJobs: number;
@@ -43,7 +43,7 @@ export interface Job {
   description: string;
   requirements?: string[];
   budget: number;
-  currency: 'XLM' | 'USDC';
+  currency: 'XLM'; // Only XLM supported
   employerAddress: string;
   employerProfile: EmployerProfile;
   status: 'open' | 'in_progress' | 'completed' | 'cancelled' | 'disputed';
