@@ -29,7 +29,6 @@ class EscrowService {
   constructor() {
     this.server = new StellarSdk.Horizon.Server(STELLAR_CONFIG.horizonUrl);
   }
-
   /**
    * Create escrow for a job - locks employer's funds
    */
@@ -40,17 +39,28 @@ class EscrowService {
     currency: 'XLM' | 'USDC'
   ): Promise<TransactionResult & { escrowId?: string }> {
     try {
+      // Validate inputs
+      if (!jobId || !employerAddress || amount <= 0) {
+        throw new Error('Invalid escrow parameters');
+      }
+
       // Load employer account
       const account = await this.server.loadAccount(employerAddress);
       const asset = currency === 'XLM' ? Asset.native() : new Asset('USDC', 'USDC_ISSUER_ADDRESS');
 
-      // In a real implementation, this would:
-      // 1. Create a multi-sig escrow account
-      // 2. Transfer funds to escrow account
-      // 3. Set up smart contract conditions
+      // Check if employer has sufficient balance
+      const balance = account.balances.find(b => 
+        (currency === 'XLM' && b.asset_type === 'native') ||
+        (currency === 'USDC' && b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC')
+      );
+
+      if (!balance || parseFloat(balance.balance) < amount) {
+        throw new Error(`Insufficient ${currency} balance. Required: ${amount}, Available: ${balance?.balance || 0}`);
+      }
+
+      // Generate escrow ID
+      const escrowId = `escrow_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
       
-      // For now, simulate by storing escrow data
-      const escrowId = `escrow_${Date.now()}`;
       const escrowData: EscrowData = {
         jobId,
         employerAddress,
@@ -60,40 +70,34 @@ class EscrowService {
         createdAt: new Date()
       };
 
-      // Store escrow data in localStorage (in production: blockchain)
+      // Store escrow data (in production: this would be in smart contract state)
       const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
       existingEscrows.push({ id: escrowId, ...escrowData });
-      localStorage.setItem('stellar_escrows', JSON.stringify(existingEscrows));
-
-      // Simulate Stellar transaction for locking funds
-      const transaction = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-      })
-        .addOperation(
-          Operation.payment({
-            destination: 'ESCROW_CONTRACT_ADDRESS', // In production: actual escrow contract
-            asset: asset,
-            amount: amount.toString(),
-          })
-        )
-        .addMemo(StellarSdk.Memo.text(`escrow:${jobId}`))
-        .setTimeout(30)
-        .build();
-
-      // Sign and submit transaction (commented for simulation)
-      /*
-      const result = await freighterApi.signTransaction(transaction.toXDR(), {
-        networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-      });
-
-      const transactionResult = await this.server.submitTransaction(result);
-      */
+      localStorage.setItem('stellar_escrows', JSON.stringify(existingEscrows));      // In production: This would deploy and fund a Soroban smart contract
+      // For now, simulate the escrow creation without actual token transfer
+      
+      // Generate a mock transaction hash for simulation
+      const mockTransactionHash = `escrow_lock_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+      
+      // In a real implementation, you would:
+      // 1. Deploy or invoke the Soroban escrow contract
+      // 2. Transfer tokens to the contract
+      // 3. Set contract state with job details
+      // 
+      // Example real implementation:
+      // const contract = new SorobanContract(ESCROW_CONTRACT_ID);
+      // const result = await contract.invoke('create_escrow', {
+      //   job_id: jobId,
+      //   employer: employerAddress,
+      //   amount: amount,
+      //   token: tokenAddress,
+      //   deadline: null
+      // });      console.log(`✅ Escrow simulation: ${amount} ${currency} virtually locked for job ${jobId}`);
 
       return {
-        hash: `escrow_lock_${Date.now()}`,
+        hash: `escrow_lock_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
         status: 'success',
-        message: `${amount} ${currency} locked in escrow for job ${jobId}`,
+        message: `${amount} ${currency} successfully locked in escrow for job ${jobId} (simulation mode)`,
         escrowId
       };
     } catch (error) {
@@ -132,8 +136,7 @@ class EscrowService {
       // Update escrow data
       escrow.status = 'released';
       escrow.freelancerAddress = freelancerAddress;
-      escrow.releasedAt = new Date();
-      existingEscrows[escrowIndex] = escrow;
+      escrow.releasedAt = new Date();      existingEscrows[escrowIndex] = escrow;
       localStorage.setItem('stellar_escrows', JSON.stringify(existingEscrows));
 
       // In a real implementation, this would:
@@ -141,38 +144,15 @@ class EscrowService {
       // 2. Transfer funds from escrow to freelancer
       // 3. Update contract state
 
-      // Simulate Stellar transaction for releasing funds
-      const asset = escrow.currency === 'XLM' ? Asset.native() : new Asset('USDC', 'USDC_ISSUER_ADDRESS');
-      
-      // Load escrow account (in production: the actual escrow contract account)
-      const escrowAccount = await this.server.loadAccount('ESCROW_CONTRACT_ADDRESS');
-      
-      const transaction = new TransactionBuilder(escrowAccount, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-      })
-        .addOperation(
-          Operation.payment({
-            destination: freelancerAddress,
-            asset: asset,
-            amount: escrow.amount.toString(),
-          })
-        )
-        .addMemo(StellarSdk.Memo.text(`release:${jobId}`))
-        .setTimeout(30)
-        .build();
+      // Simulate escrow release without actual blockchain transaction
+      console.log(`✅ Escrow release simulation: ${escrow.amount} ${escrow.currency} released to ${freelancerAddress.substring(0, 8)}...`);
 
-      // Sign and submit transaction (commented for simulation)
-      /*
-      const result = await freighterApi.signTransaction(transaction.toXDR(), {
-        networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-      });
-
-      const transactionResult = await this.server.submitTransaction(result);
-      */
+      // In production, this would be:
+      // const contract = new SorobanContract(ESCROW_CONTRACT_ID);
+      // const result = await contract.invoke('release_escrow', { job_id: jobId });
 
       return {
-        hash: `escrow_release_${Date.now()}`,
+        hash: `escrow_release_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
         status: 'success',
         message: `${escrow.amount} ${escrow.currency} released from escrow to ${freelancerAddress}`,
       };
@@ -278,6 +258,92 @@ class EscrowService {
     } catch (error) {
       console.error('Error getting employer escrows:', error);
       return [];
+    }
+  }
+
+  /**
+   * Update escrow with freelancer address when job is assigned
+   */
+  async assignFreelancerToEscrow(
+    jobId: string,
+    freelancerAddress: string
+  ): Promise<TransactionResult> {
+    try {
+      const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+      const escrowIndex = existingEscrows.findIndex((e: any) => e.jobId === jobId);
+      
+      if (escrowIndex === -1) {
+        return {
+          hash: '',
+          status: 'failed',
+          message: 'Escrow not found for this job'
+        };
+      }
+
+      const escrow = existingEscrows[escrowIndex];
+      
+      if (escrow.status !== 'locked') {
+        return {
+          hash: '',
+          status: 'failed',
+          message: 'Escrow is not in locked state'
+        };
+      }
+
+      // Update escrow with freelancer address
+      escrow.freelancerAddress = freelancerAddress;
+      escrow.updatedAt = new Date();
+      existingEscrows[escrowIndex] = escrow;
+      localStorage.setItem('stellar_escrows', JSON.stringify(existingEscrows));
+
+      // In production: Update smart contract with freelancer address
+      console.log(`Escrow for job ${jobId} assigned to freelancer ${freelancerAddress}`);
+
+      return {
+        hash: `escrow_assign_${Date.now()}`,
+        status: 'success',
+        message: `Escrow assigned to freelancer ${freelancerAddress.substring(0, 8)}...`
+      };
+    } catch (error) {
+      console.error('Error assigning freelancer to escrow:', error);
+      return {
+        hash: '',
+        status: 'failed',
+        message: error instanceof Error ? error.message : 'Failed to assign freelancer to escrow'
+      };
+    }
+  }
+
+  /**
+   * Get escrow statistics for employer dashboard
+   */
+  async getEscrowStats(employerAddress: string): Promise<{
+    totalLocked: number;
+    totalReleased: number;
+    activEscrows: number;
+    completedEscrows: number;
+  }> {
+    try {
+      const escrows = await this.getEmployerEscrows(employerAddress);
+      
+      return {
+        totalLocked: escrows
+          .filter(e => e.status === 'locked')
+          .reduce((sum, e) => sum + e.amount, 0),
+        totalReleased: escrows
+          .filter(e => e.status === 'released')
+          .reduce((sum, e) => sum + e.amount, 0),
+        activEscrows: escrows.filter(e => e.status === 'locked').length,
+        completedEscrows: escrows.filter(e => e.status === 'released').length
+      };
+    } catch (error) {
+      console.error('Error getting escrow stats:', error);
+      return {
+        totalLocked: 0,
+        totalReleased: 0,
+        activEscrows: 0,
+        completedEscrows: 0
+      };
     }
   }
 }

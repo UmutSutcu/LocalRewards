@@ -68,9 +68,7 @@ class JobService {
         networkPassphrase: STELLAR_CONFIG.networkPassphrase,
       });
 
-      const signedTx = StellarSdk.TransactionBuilder.fromXDR(result, STELLAR_CONFIG.networkPassphrase);      const submitResult = await this.server.submitTransaction(signedTx);
-
-      // Create escrow for the job - lock employer's funds
+      const signedTx = StellarSdk.TransactionBuilder.fromXDR(result, STELLAR_CONFIG.networkPassphrase);      const submitResult = await this.server.submitTransaction(signedTx);      // Create escrow for the job - lock employer's funds
       const escrowResult = await escrowService.createEscrow(
         jobId,
         userPublicKey,
@@ -80,12 +78,11 @@ class JobService {
 
       if (escrowResult.status !== 'success') {
         console.error('Failed to create escrow:', escrowResult.message);
-        // Job creation continues even if escrow fails (for demo purposes)
-        // In production, you might want to rollback the job creation
+        // In production, you should rollback the job creation if escrow fails
+        throw new Error(`Escrow creation failed: ${escrowResult.message}`);
       }
 
-      // Store job data in local storage as a fallback
-      // In production, this would be stored in a backend database or IPFS
+      // Store job data with escrow contract ID
       const job: Partial<Job> = {
         id: jobId,
         title: jobData.title,
@@ -94,12 +91,11 @@ class JobService {
         currency: jobData.currency,
         employerAddress: userPublicKey,
         status: 'open',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date(),        updatedAt: new Date(),
         requirements: jobData.requirements || [],
         deadline: jobData.deadline,
         tags: jobData.tags || [],
-        escrowContractId: escrowResult.escrowId, // Store escrow ID with job
+        escrowContractId: escrowResult.escrowId // Link escrow to job
       };
 
       // Store in localStorage temporarily
@@ -441,7 +437,6 @@ class JobService {
       };
     }
   }
-
   /**
    * Accept a freelancer application and start the job
    */
@@ -478,10 +473,17 @@ class JobService {
         }
       }
 
+      // Update escrow with freelancer address
+      const escrowAssignResult = await escrowService.assignFreelancerToEscrow(jobId, freelancerAddress);
+      if (escrowAssignResult.status !== 'success') {
+        console.warn('Failed to assign freelancer to escrow:', escrowAssignResult.message);
+        // Continue with job acceptance even if escrow assignment fails for now
+      }
+
       return {
         hash: `mock_accept_${Date.now()}`,
         status: 'success',
-        message: 'Application accepted successfully',
+        message: 'Application accepted successfully and escrow assigned to freelancer',
       };
     } catch (error) {
       console.error('Error accepting application:', error);

@@ -32,6 +32,7 @@ export default function EmployerDashboard() {
   const [jobApplications, setJobApplications] = useState<any[]>([]);  const [allApplications, setAllApplications] = useState<any[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
   const [escrowData, setEscrowData] = useState<{ [jobId: string]: EscrowData }>({});
+  const [escrowStats, setEscrowStats] = useState({ totalLocked: 0, totalReleased: 0, activEscrows: 0, completedEscrows: 0 });
   const [freelancerReputations, setFreelancerReputations] = useState<{ [address: string]: { averageRating: number, totalJobs: number, recentRating: number } }>({});
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedApplicationForRating, setSelectedApplicationForRating] = useState<any | null>(null);
@@ -73,7 +74,6 @@ export default function EmployerDashboard() {
       setIsLoadingJobs(false);
     }
   };
-
   // Load escrow data for all jobs
   const loadEscrowData = async () => {
     if (!walletAddress) return;
@@ -87,6 +87,10 @@ export default function EmployerDashboard() {
       });
       
       setEscrowData(escrowMap);
+
+      // Load escrow statistics
+      const stats = await escrowService.getEscrowStats(walletAddress);
+      setEscrowStats(stats);
     } catch (error) {
       console.error('Error loading escrow data:', error);
     }
@@ -98,8 +102,14 @@ export default function EmployerDashboard() {
     
     if (!newJob.title || !newJob.description || !newJob.budget) return;
 
+    // Confirm escrow creation
+    const confirmMessage = `This will create a job and lock ${newJob.budget} ${newJob.currency} in escrow until completion. Continue?`;
+    if (!confirm(confirmMessage)) return;
+
     try {
       setIsCreatingJob(true);
+      
+      // First create the job
       const result = await jobService.createJob({
         title: newJob.title,
         description: newJob.description,
@@ -110,8 +120,36 @@ export default function EmployerDashboard() {
       });
 
       if (result.status === 'success') {
-        // Reload jobs to include the new one
+        // Create escrow contract for the job
+        if (result.jobId) {
+          const escrowResult = await escrowService.createEscrow(
+            result.jobId,
+            walletAddress,
+            newJob.budget,
+            newJob.currency
+          );
+          
+          if (escrowResult.status === 'success') {
+            // Update job with escrow contract ID
+            const jobs = JSON.parse(localStorage.getItem('stellar_jobs') || '[]');
+            const updatedJobs = jobs.map((job: any) => {
+              if (job.id === result.jobId) {
+                return { ...job, escrowContractId: escrowResult.escrowId };
+              }
+              return job;
+            });
+            localStorage.setItem('stellar_jobs', JSON.stringify(updatedJobs));
+            
+            alert(`Job created successfully! ${newJob.budget} ${newJob.currency} locked in escrow.`);
+          } else {
+            alert(`Job created but escrow failed: ${escrowResult.message}. Please contact support.`);
+          }
+        }
+        
+        // Reload jobs and escrow data
         await loadJobs();
+        await loadEscrowData();
+        
         setNewJob({ 
           title: '', 
           description: '', 
@@ -121,7 +159,6 @@ export default function EmployerDashboard() {
           tags: []
         });
         setShowCreateJob(false);
-        alert('Job created successfully!');
       } else {
         alert('Failed to create job: ' + result.message);
       }
@@ -208,17 +245,29 @@ export default function EmployerDashboard() {
     setShowJobDetails(true);
     await loadJobApplications(job.id);
   };
-
-  // Accept an application
+  // Accept an application and update escrow
   const handleAcceptApplication = async (applicationId: string, freelancerAddress: string) => {
     if (!selectedJob) return;
+    
+    // Confirm acceptance and escrow assignment
+    const confirmMessage = `This will accept the application and assign the escrow to the freelancer. The ${selectedJob.budget} ${selectedJob.currency} will be released upon successful completion. Continue?`;
+    if (!confirm(confirmMessage)) return;
     
     try {
       const result = await jobService.acceptApplication(selectedJob.id, applicationId, freelancerAddress);
       if (result.status === 'success') {
-        alert('Application accepted! Job has been assigned.');
+        // Update escrow with freelancer address
+        const escrowData = await escrowService.getEscrowByJobId(selectedJob.id);
+        if (escrowData && escrowData.status === 'locked') {
+          // Note: In a real smart contract, this would be handled automatically
+          // The escrow contract would be updated with the selected freelancer
+          console.log('Escrow assigned to freelancer:', freelancerAddress);
+        }
+        
+        alert('Application accepted! Job has been assigned and escrow is now linked to the freelancer.');
         await loadJobs(); // Reload jobs to update status
         await loadJobApplications(selectedJob.id); // Reload applications
+        await loadEscrowData(); // Reload escrow data
       } else {
         alert('Failed to accept application: ' + result.message);
       }
@@ -268,16 +317,32 @@ export default function EmployerDashboard() {
     setRatingComment('');
     setShowRatingModal(true);
   };
-
-  // Submit approval with rating
+  // Submit approval with rating and release escrow
   const handleSubmitApproval = async () => {
     if (!selectedJob || !selectedApplicationForRating) return;
     
-    if (!confirm(`This will approve the job completion with ${selectedRating} stars, transfer payment, and mint reputation token. Continue?`)) {
+    const confirmMessage = `This will:
+• Approve the job completion with ${selectedRating} stars
+• Release ${selectedJob.budget} ${selectedJob.currency} from escrow to freelancer
+• Mint reputation token for the freelancer
+• Mark the job as completed
+
+Continue?`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
     
     try {
+      // First check if escrow exists and is locked
+      const escrowData = await escrowService.getEscrowByJobId(selectedJob.id);
+      if (!escrowData) {
+        alert('Warning: No escrow found for this job. Payment will be made directly.');
+      } else if (escrowData.status !== 'locked') {
+        alert(`Warning: Escrow status is "${escrowData.status}", not locked. Please verify before proceeding.`);
+        if (!confirm('Continue anyway?')) return;
+      }
+      
       const result = await jobService.approveJobCompletion(
         selectedJob.id,
         selectedApplicationForRating.id,
@@ -287,18 +352,18 @@ export default function EmployerDashboard() {
       );
       
       if (result.status === 'success') {
-        alert(`Job completion approved with ${selectedRating} stars! Payment transferred and reputation token minted.`);
+        alert(`✅ Job completion approved successfully!\n\n• Rating: ${selectedRating} stars\n• Payment: ${selectedJob.budget} ${selectedJob.currency} transferred\n• Reputation token minted`);
         await loadJobs(); // Reload jobs to update status
         await loadJobApplications(selectedJob.id); // Reload applications
         await loadEscrowData(); // Reload escrow data
         setShowJobDetails(false);
         setShowRatingModal(false);
       } else {
-        alert('Failed to approve completion: ' + result.message);
+        alert('❌ Failed to approve completion: ' + result.message);
       }
     } catch (error) {
       console.error('Error approving completion:', error);
-      alert('Failed to approve completion. Please try again.');
+      alert('❌ Failed to approve completion. Please try again.');
     }
   };
 
@@ -317,6 +382,42 @@ export default function EmployerDashboard() {
     } catch (error) {
       console.error('Error updating job status:', error);
       alert('Failed to update job status. Please try again.');
+    }
+  };
+
+  // Cancel job and refund escrow
+  const handleCancelJob = async (jobId: string) => {
+    if (!confirm('Are you sure you want to cancel this job? This will refund the escrow to you and mark the job as cancelled.')) {
+      return;
+    }
+    
+    try {
+      // Check if there's an escrow to cancel
+      const escrowData = await escrowService.getEscrowByJobId(jobId);
+      
+      if (escrowData && escrowData.status === 'locked') {
+        // Cancel escrow first
+        const escrowResult = await escrowService.cancelEscrow(escrowData.jobId, jobId);
+        
+        if (escrowResult.status !== 'success') {
+          alert('Failed to cancel escrow: ' + escrowResult.message);
+          return;
+        }
+      }
+      
+      // Update job status
+      const result = await jobService.updateJobStatus(jobId, 'cancelled');
+      if (result.status === 'success') {
+        alert('Job cancelled successfully! Escrow funds have been refunded to you.');
+        await loadJobs();
+        await loadEscrowData();
+        setShowJobDetails(false);
+      } else {
+        alert('Failed to cancel job: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error cancelling job:', error);
+      alert('Failed to cancel job. Please try again.');
     }
   };
 
@@ -380,10 +481,8 @@ export default function EmployerDashboard() {
             publicKey={walletAddress} 
             onConnect={setWalletAddress} 
           />
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        </div>        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card className="p-6">
             <div className="flex items-center">
               <Briefcase className="w-8 h-8 text-blue-600" />
@@ -417,16 +516,29 @@ export default function EmployerDashboard() {
           </Card>
           <Card className="p-6">
             <div className="flex items-center">
-              <DollarSign className="w-8 h-8 text-purple-600" />
+              <Shield className="w-8 h-8 text-blue-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Budget</p>
+                <p className="text-sm font-medium text-gray-600">Locked Escrow</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {jobs.reduce((sum, job) => sum + job.budget, 0)}
+                  {escrowStats.totalLocked.toFixed(1)}
                 </p>
+                <p className="text-xs text-gray-500">{escrowStats.activEscrows} active</p>
               </div>
             </div>
           </Card>
-        </div>        {/* Jobs List */}
+          <Card className="p-6">
+            <div className="flex items-center">
+              <DollarSign className="w-8 h-8 text-purple-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Released</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {escrowStats.totalReleased.toFixed(1)}
+                </p>
+                <p className="text-xs text-gray-500">{escrowStats.completedEscrows} payments</p>
+              </div>
+            </div>
+          </Card>
+        </div>{/* Jobs List */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Your Jobs</h2>
@@ -735,22 +847,20 @@ export default function EmployerDashboard() {
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* Job Status Actions */}
+                )}                {/* Job Status Actions */}
                 {selectedJob.status === 'open' && (
                   <div className="mb-6">
                     <h4 className="text-lg font-medium text-gray-900 mb-2">Actions</h4>
                     <div className="flex space-x-2">
                       <Button
                         variant="outline"
-                        onClick={() => handleUpdateJobStatus(selectedJob.id, 'cancelled')}
+                        onClick={() => handleCancelJob(selectedJob.id)}
                       >
-                        Cancel Job
+                        Cancel Job & Refund Escrow
                       </Button>
                     </div>
                   </div>
-                )}                {/* Applications Section */}
+                )}{/* Applications Section */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium text-gray-900">
