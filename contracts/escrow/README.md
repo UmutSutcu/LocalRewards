@@ -1,30 +1,30 @@
 # Escrow Smart Contract
 
-Bu Soroban smart contract, Starnance platformunda freelance işleri için escrow sistemi sağlar.
+This Soroban smart contract provides an escrow system for freelance jobs on the Starnance platform.
 
-## Özellikler
+## Features
 
-### ✅ Temel Escrow Fonksiyonları
-- **create_escrow**: İşveren tarafından iş başlatılırken XLM kilitlenir
-- **assign_freelancer**: Kabul edilen freelancer escrow'a atanır
-- **release_escrow**: İş tamamlandığında işveren tarafından ödeme serbest bırakılır
-- **cancel_escrow**: İş iptal edildiğinde işverene geri ödeme
+### ✅ Core Escrow Functions
+- **create_escrow**: Locks XLM when a job is initiated by the employer
+- **assign_freelancer**: Assigns the accepted freelancer to the escrow
+- **release_escrow**: Releases the payment by the employer upon job completion
+- **cancel_escrow**: Refunds the employer if the job is canceled
 
-### 🔒 Güvenlik Önlemleri
-- **Multi-signature kontrolleri**: Sadece yetkili taraflar işlem yapabilir
-- **Time-lock koruması**: Deadline'dan sonra iptal edilebilir
-- **Dispute resolution**: Anlaşmazlık çözüm sistemi
-- **Balance kontrolü**: Yetersiz bakiye kontrolü
+### 🔒 Security Measures
+- **Multi-signature controls**: Only authorized parties can perform transactions
+- **Time-lock protection**: Can be canceled after the deadline
+- **Dispute resolution**: Dispute resolution system
+- **Balance check**: Insufficient balance check
 
-### 🏛️ Yönetişim
-- **Admin rolü**: Anlaşmazlık çözümü için
-- **Event emission**: Tüm önemli olaylar kaydedilir
-- **Audit trail**: İşlem geçmişi takibi
+### 🏛️ Governance
+- **Admin role**: For dispute resolution
+- **Event emission**: All significant events are recorded
+- **Audit trail**: Transaction history tracking
 
-## Kullanım Akışı
+## Usage Flow
 
 ```rust
-// 1. İşveren iş oluşturur ve escrow başlatır
+// 1. Employer creates a job and initiates the escrow
 escrow_contract.create_escrow(
     job_id,
     employer_address,
@@ -33,33 +33,33 @@ escrow_contract.create_escrow(
     deadline
 );
 
-// 2. Freelancer kabul edildiğinde escrow'a atanır
+// 2. When the freelancer is accepted, they are assigned to the escrow
 escrow_contract.assign_freelancer(
     job_id,
     freelancer_address
 );
 
-// 3. İş tamamlandığında işveren ödemeyi serbest bırakır
+// 3. Employer releases the payment upon job completion
 escrow_contract.release_escrow(job_id);
 ```
 
-## Güvenlik Özellikleri
+## Security Features
 
-### 🛡️ Akıllı Kontrat Güvenliği
-- Reentrancy koruması
-- Overflow/underflow kontrolü
-- Access control (yetkilendirme)
-- Input validation (giriş doğrulama)
+### 🛡️ Smart Contract Security
+- Reentrancy protection
+- Overflow/underflow control
+- Access control (authorization)
+- Input validation
 
 ### 🔐 Multi-Signature Support
-- İşveren yetkilendirmesi gerekli
-- Freelancer atama kontrolü
+- Employer authorization required
+- Freelancer assignment control
 - Admin dispute resolution
 
 ### ⏰ Time-Lock Mechanism
-- Deadline sonrası iptal hakkı
-- Otomatik refund koruması
-- Grace period implementasyonu
+- Right to cancel after the deadline
+- Automatic refund protection
+- Grace period implementation
 
 ## Error Handling
 
@@ -78,27 +78,27 @@ pub enum EscrowError {
 
 ## Events
 
-Kontrat tüm önemli olayları emit eder:
-- `escrow.created`: Escrow oluşturuldu
-- `escrow.assigned`: Freelancer atandı
-- `escrow.released`: Ödeme serbest bırakıldı
-- `escrow.cancelled`: Escrow iptal edildi
-- `dispute.initiated`: Anlaşmazlık başlatıldı
-- `dispute.resolved`: Anlaşmazlık çözüldü
+The contract emits all significant events:
+- `escrow.created`: Escrow created
+- `escrow.assigned`: Freelancer assigned
+- `escrow.released`: Payment released
+- `escrow.cancelled`: Escrow canceled
+- `dispute.initiated`: Dispute initiated
+- `dispute.resolved`: Dispute resolved
 
 ## Deployment
 
 ```bash
-# Contract'ı build et
+# Build the contract
 soroban contract build
 
-# Testnet'e deploy et
+# Deploy to testnet
 soroban contract deploy \
     --wasm target/wasm32-unknown-unknown/release/escrow_contract.wasm \
     --source alice \
     --network testnet
 
-# Initialize et
+# Initialize it
 soroban contract invoke \
     --id $CONTRACT_ID \
     --source alice \
@@ -110,9 +110,9 @@ soroban contract invoke \
 ## Test
 
 ```bash
-# Unit testleri çalıştır
+# Run unit tests
 cargo test
 
-# Integration testleri
+# Integration tests
 soroban contract test
 ```
