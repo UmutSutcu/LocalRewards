@@ -1,5 +1,5 @@
 // Soroban Smart Contract for Escrow System
-// This is a simplified example for the StellarLocalRewards platform
+// This is a simplified example for the Starnance platform
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short,
@@ -16,12 +16,11 @@ pub enum DataKey {
 
 #[derive(Clone)]
 #[contracttype]
-pub struct EscrowData {
-    pub job_id: String,
+pub struct EscrowData {    pub job_id: String,
     pub employer: Address,
     pub freelancer: Option<Address>,
     pub amount: i128,
-    pub token: Address, // XLM or USDC token contract
+    pub token: Address, // XLM token contract
     pub status: EscrowStatus,
     pub created_at: u64,
     pub deadline: Option<u64>,

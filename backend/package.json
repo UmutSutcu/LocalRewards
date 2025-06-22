@@ -1,7 +1,7 @@
 {
-  "name": "stellar-local-rewards-backend",
+  "name": "starnance-backend",
   "version": "1.0.0",
-  "description": "Backend API for Stellar Local Rewards platform",
+  "description": "Backend API for Starnance platform",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -21,14 +21,14 @@
   "devDependencies": {
     "nodemon": "^3.0.2",
     "jest": "^29.7.0"
-  },
-  "keywords": [
+  },  "keywords": [
     "stellar",
     "blockchain",
     "api",
-    "loyalty",
-    "rewards"
+    "freelance",
+    "escrow",
+    "marketplace"
   ],
-  "author": "Stellar Local Rewards Team",
+  "author": "Starnance Team",
   "license": "MIT"
 }

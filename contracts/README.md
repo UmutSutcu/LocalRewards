@@ -1,6 +1,6 @@
-# StellarFreelance - Smart Contracts
+# Starnance - Smart Contracts
 
-This directory contains the Soroban smart contracts for the StellarFreelance platform.
+This directory contains the Soroban smart contracts for the Starnance platform.
 
 ## Contracts Overview
 

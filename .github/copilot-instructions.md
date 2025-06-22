@@ -1,9 +1,9 @@
-# StellarLocalRewards - Copilot Instructions
+# Starnance - Copilot Instructions
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
 ## Project Overview
-This is a modern token-based loyalty program and micro-donation platform built on Stellar blockchain with the following key features:
+This is a modern Stellar blockchain-based P2P freelance marketplace with escrow & reputation system featuring:
 
 - **Frontend**: React + TypeScript + Vite + TailwindCSS
 - **Blockchain**: Stellar network with Soroban smart contracts

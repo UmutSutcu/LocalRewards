@@ -1,7 +1,7 @@
 {
-  "name": "stellar-freelance",
+  "name": "starnance",
   "version": "1.0.0",
-  "description": "Stellar-based P2P Freelance Marketplace with Escrow & Reputation System",
+  "description": "Starnance - Stellar-based P2P Freelance Marketplace with Escrow & Reputation System",
   "type": "module",
   "scripts": {
     "dev": "vite",

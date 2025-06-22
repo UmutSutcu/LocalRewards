@@ -1,4 +1,4 @@
-// StellarFreelance Types
+// Starnance Types
 
 export interface User {
   id: string;
