@@ -1,5 +1,5 @@
-import { useWalletContext } from '@/contexts/WalletContext';
-import freighterService from '@/services/freighterService';
+import { useWalletContext } from '../contexts/WalletContext';
+import freighterService from '../services/freighterService';
 
 export const useWalletRequired = () => {
   const { 

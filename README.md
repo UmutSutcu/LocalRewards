@@ -1,6 +1,6 @@
-# 🌟 Stellar Local Rewards
+# 💼 StellarFreelance
 
-**Modern token-based loyalty program and micro-donation platform built on Stellar blockchain**
+**Stellar blockchain-based P2P freelance marketplace with escrow & reputation system**
 
 [![Stellar](https://img.shields.io/badge/Built%20on-Stellar-black?style=flat&logo=stellar)](https://stellar.org/)
 [![React](https://img.shields.io/badge/Frontend-React-blue?style=flat&logo=react)](https://reactjs.org/)
@@ -9,254 +9,186 @@
 
 ## 🎯 Overview
 
-Stellar Local Rewards revolutionizes customer loyalty programs by leveraging blockchain technology to create transparent, interoperable, and community-driven reward systems. Built on Stellar's fast and low-cost network with Soroban smart contracts.
+StellarFreelance is a decentralized peer-to-peer freelance marketplace built on Stellar blockchain. It features secure escrow payments, soulbound reputation tokens (SBT), and transparent project management - all powered by Soroban smart contracts.
 
 ### ✨ Key Features
 
-- 🔐 **Passkey Authentication** - Secure, passwordless login using biometric authentication
-- 🏪 **Business Dashboard** - Create and manage loyalty tokens, track customer engagement
-- 👥 **Customer Portal** - Earn, redeem, and manage loyalty tokens across multiple businesses
-- 💝 **Community Donations** - Support local projects with token-based micro-donations
-- ⚡ **Gas-Free Transactions** - Launchtube paymaster integration for sponsored transactions
-- 🔗 **Stellar Integration** - Built on Stellar network with Soroban smart contracts
-- 📱 **Mobile-First Design** - Responsive PWA-ready interface
+- 🔐 **Wallet Integration** - Freighter wallet connection for secure transactions
+- 💼 **Employer Dashboard** - Post jobs, manage projects, and hire talent with escrow protection  
+- 👨‍💻 **Freelancer Portal** - Browse jobs, build reputation, and get paid securely
+- 🔒 **Smart Contract Escrow** - Automated payment protection for both parties
+- ⭐ **Soulbound Reputation Tokens** - Non-transferable tokens that build freelancer credibility
+- 💰 **Multi-Currency Support** - XLM and USDC payment options
+- 🎯 **Dispute Resolution** - Built-in arbitration system for project conflicts
 
-## 🏗️ Architecture
+### 🏗️ Technical Architecture
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Frontend │    │  Express Backend │    │ Soroban Contracts│
-│                 │    │                 │    │                 │
-│ • Passkey Auth  │◄──►│ • API Services  │◄──►│ • Token Contract │
-│ • Dashboard UI  │    │ • Metadata      │    │ • Loyalty Logic │
-│ • Wallet Mgmt   │    │ • Mock POS      │    │ • Donations     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │ Stellar Network │
-                    │                 │
-                    │ • Horizon API   │
-                    │ • Launchtube    │
-                    │ • RPC Endpoint  │
-                    └─────────────────┘
-```
+**Frontend:**
+- React 18 + TypeScript + Vite
+- TailwindCSS for modern UI
+- Lucide React for icons
+- Stellar SDK for blockchain integration
 
-## 🚀 Quick Start
+**Blockchain:**
+- Stellar network (Testnet/Mainnet)
+- Soroban smart contracts for escrow and reputation
+- Freighter wallet integration
+- Multi-asset support (XLM, USDC)
+
+**Smart Contracts:**
+- **Escrow Contract**: Secure fund locking and release mechanisms
+- **Reputation Contract**: Soulbound token minting for freelancer credibility
+- **Dispute Contract**: Decentralized arbitration system
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
 - npm or yarn
-- Rust (for smart contracts)
-- Soroban CLI
+- Freighter browser wallet
+- Stellar testnet account with XLM/USDC
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/UmutSutcu/LocalRewards.git
-   cd stellar-local-rewards
+   git clone https://github.com/yourusername/stellar-freelance.git
+   cd stellar-freelance
    ```
 
-2. **Install frontend dependencies**
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Install backend dependencies**
+3. **Start development server**
    ```bash
-   cd backend
-   npm install
-   cd ..
-   ```
-
-4. **Start development servers**
-   ```bash
-   # Terminal 1 - Frontend
    npm run dev
-   
-   # Terminal 2 - Backend
-   npm run start:backend
    ```
 
-5. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:3001
+4. **Open in browser**
+   Navigate to `http://localhost:5173`
 
-## 🔧 Development
+### Smart Contract Setup
 
-### Frontend Development
+1. **Deploy contracts**
+   ```bash
+   cd contracts
+   npm install
+   npm run deploy
+   ```
 
-The frontend is built with React, TypeScript, and Vite for optimal development experience.
+2. **Configure contract addresses**
+   Update contract addresses in `src/services/stellarService.ts`
 
-```bash
-# Start development server
-npm run dev
+## 📱 Usage
 
-# Build for production
-npm run build
+### For Employers
 
-# Run tests
-npm run test
+1. **Connect Wallet** - Link your Freighter wallet
+2. **Post Jobs** - Create detailed job listings with budget and requirements
+3. **Review Applications** - Evaluate freelancer proposals and portfolios
+4. **Start Escrow** - Lock funds in smart contract when hiring
+5. **Release Payment** - Approve completed work to release funds automatically
+6. **Rate Freelancer** - Mint reputation tokens based on performance
 
-# Lint code
-npm run lint
+### For Freelancers
+
+1. **Connect Wallet** - Link your Freighter wallet
+2. **Browse Jobs** - Search and filter available opportunities
+3. **Submit Proposals** - Apply to jobs with custom proposals
+4. **Complete Work** - Deliver projects according to requirements
+5. **Get Paid** - Receive automatic payments through escrow
+6. **Build Reputation** - Earn soulbound tokens for successful completions
+
+## 🛠️ Development
+
+### Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── EmployerPanel/   # Employer-specific components
+│   ├── FreelancerPanel/ # Freelancer-specific components
+│   └── Shared/          # Reusable UI components
+├── contexts/            # React contexts (Wallet, etc.)
+├── hooks/               # Custom React hooks
+├── services/            # API and blockchain services
+├── types/               # TypeScript type definitions
+└── utils/               # Helper functions
+
+contracts/
+├── escrow/              # Escrow smart contract
+├── reputation/          # Reputation SBT contract
+└── dispute/             # Dispute resolution contract
 ```
 
-### Smart Contract Development
+### Key Components
 
-Smart contracts are written in Rust using the Soroban framework.
+- **EmployerDashboard**: Job posting, applicant management, escrow controls
+- **FreelancerDashboard**: Job browsing, application tracking, reputation display
+- **EscrowContract**: Secure fund management with automatic release
+- **ReputationSystem**: SBT minting and reputation tracking
 
-```bash
-# Navigate to contracts directory
-cd contracts
+### Environment Variables
 
-# Build contracts
-soroban contract build
+Create `.env.local`:
 
-# Run tests
-cargo test
-
-# Deploy to testnet
-./deploy-scripts/deploy.sh
+```env
+VITE_STELLAR_NETWORK=testnet
+VITE_ESCROW_CONTRACT_ID=your_escrow_contract_id
+VITE_REPUTATION_CONTRACT_ID=your_reputation_contract_id
+VITE_DISPUTE_CONTRACT_ID=your_dispute_contract_id
 ```
-
-### Backend Development
-
-Express.js API server for metadata and demo functionality.
-
-```bash
-cd backend
-
-# Start development server
-npm run dev
-
-# Start production server
-npm start
-```
-
-## 📚 User Flows
-
-### For Businesses
-
-1. **Onboarding**
-   - Connect with Passkey authentication
-   - Set up business profile
-   - Create loyalty token
-
-2. **Token Management**
-   - Issue tokens to customers
-   - Set earning rates and rules
-   - Track redemptions and analytics
-
-### For Customers
-
-1. **Getting Started**
-   - Connect with Passkey
-   - Browse local businesses
-   - Join loyalty programs
-
-2. **Earning & Spending**
-   - Earn tokens through purchases
-   - View token balances
-   - Redeem rewards
-
-3. **Community Support**
-   - Discover local projects
-   - Make token donations
-   - Track community impact
-
-## 🛠️ Technology Stack
-
-### Frontend
-- **React 18** - Modern UI library
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tool
-- **TailwindCSS** - Utility-first styling
-- **React Router** - Client-side routing
-- **Lucide React** - Beautiful icons
-
-### Blockchain
-- **Stellar Network** - Fast, low-cost blockchain
-- **Soroban** - Smart contract platform
-- **Stellar SDK** - JavaScript integration
-- **Passkey Kit** - Secure authentication
-- **Launchtube** - Gas sponsorship
-
-### Backend
-- **Node.js** - Runtime environment
-- **Express** - Web framework
-- **CORS** - Cross-origin support
-- **Helmet** - Security middleware
-
-## 🔐 Security Features
-
-- **Passkey Authentication** - Biometric security, no passwords
-- **Smart Contract Auditing** - Comprehensive input validation
-- **HTTPS Enforcement** - Secure communication
-- **Rate Limiting** - API protection
-- **Input Sanitization** - XSS prevention
-
-## 🌐 Network Configuration
-
-### Testnet (Development)
-- **Network**: Stellar Testnet
-- **Horizon**: https://horizon-testnet.stellar.org
-- **Soroban RPC**: https://soroban-testnet.stellar.org
-- **Friendbot**: https://friendbot.stellar.org
-
-### Mainnet (Production)
-- **Network**: Stellar Mainnet
-- **Horizon**: https://horizon.stellar.org
-- **Soroban RPC**: https://soroban-mainnet.stellar.org
-
-## 📈 Roadmap
-
-### Phase 1 - MVP (Current)
-- [x] Passkey authentication
-- [x] Basic loyalty token system
-- [x] Community donation features
-- [x] Responsive web interface
-
-### Phase 2 - Enhanced Features
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics dashboard
-- [ ] Multi-token support
-- [ ] Automated token vesting
-
-### Phase 3 - Enterprise
-- [ ] POS system integrations
-- [ ] White-label solutions
-- [ ] Advanced governance features
-- [ ] Cross-chain compatibility
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 🔮 Roadmap
+
+- [ ] **MVP Features**
+  - [x] Basic job posting and browsing
+  - [x] Wallet integration and user profiles
+  - [ ] Escrow contract implementation
+  - [ ] Reputation token minting
+  - [ ] Application and hiring flow
+
+- [ ] **Advanced Features**
+  - [ ] Dispute resolution system
+  - [ ] Advanced freelancer filtering
+  - [ ] Multi-milestone projects
+  - [ ] Team collaboration features
+  - [ ] Mobile app development
+
+- [ ] **Integration & Scaling**
+  - [ ] Backend API for metadata
+  - [ ] IPFS for file storage
+  - [ ] Multi-chain support
+  - [ ] Advanced analytics dashboard
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙋‍♀️ Support
-
-- **Documentation**: [docs/](./docs/)
-- **Issues**: [GitHub Issues](https://github.com/UmutSutcu/LocalRewards/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/UmutSutcu/LocalRewards/discussions)
-
 ## 🌟 Acknowledgments
 
-- **Stellar Development Foundation** - For the amazing blockchain platform
-- **Soroban Team** - For the smart contract framework
-- **Community Contributors** - For their valuable feedback and contributions
+- Stellar Development Foundation for blockchain infrastructure
+- Soroban team for smart contract platform
+- React and TypeScript communities
+- Hackathon organizers and participants
+
+## 📞 Support
+
+- 📧 Email: support@stellarfreelance.com
+- 💬 Discord: [Join our community](https://discord.gg/stellarfreelance)
+- 🐦 Twitter: [@StellarFreelance](https://twitter.com/stellarfreelance)
+- 📖 Docs: [Documentation](https://docs.stellarfreelance.com)
 
 ---
 

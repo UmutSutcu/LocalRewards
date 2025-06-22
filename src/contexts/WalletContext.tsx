@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useWallet } from '@/hooks/useWallet';
-import freighterService from '@/services/freighterService';
+import { useWallet } from '../hooks/useWallet';
+import freighterService from '../services/freighterService';
 
 interface WalletContextType {
   isConnected: boolean;
