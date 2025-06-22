@@ -2,7 +2,7 @@
 
 **Stellar blockchain-based P2P freelance marketplace with escrow & reputation system**
 
-🌐 **[Live Demo](https://starnance.vercel.app)** 
+🌐 **[Live Demo](https://www.youtube.com/watch?v=2SIYnqw6mAU)** 
 
 [![Stellar](https://img.shields.io/badge/Built%20on-Stellar-black?style=flat&logo=stellar)](https://stellar.org/)
 [![React](https://img.shields.io/badge/Frontend-React-blue?style=flat&logo=react)](https://reactjs.org/)
@@ -153,12 +153,12 @@ VITE_DISPUTE_CONTRACT_ID=your_dispute_contract_id
 
 ## 🔮 Roadmap
 
-- [ ] **MVP Features**
+- [x] **MVP Features**
   - [x] Basic job posting and browsing
   - [x] Wallet integration and user profiles
-  - [ ] Escrow contract implementation
-  - [ ] Reputation token minting
-  - [ ] Application and hiring flow
+  - [x] Escrow contract implementation
+  - [x] Reputation Point
+  - [x] Application and hiring flow
 
 - [ ] **Advanced Features**
   - [ ] Dispute resolution system
