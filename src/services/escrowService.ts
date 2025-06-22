@@ -75,9 +75,7 @@ class EscrowService {
       const escrowId = `escrow_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 
       console.log(`📋 Creating escrow contract entry for job ${jobId} with ${amount} XLM`);
-      console.log(`📋 Employer balance: ${xlmBalance.balance} XLM (sufficient for ${amount} XLM)`);
-
-      // In a real Soroban implementation, this would call the contract:
+      console.log(`📋 Employer balance: ${xlmBalance.balance} XLM (sufficient for ${amount} XLM)`);      // In a real Soroban implementation, this would call the contract:
       // contract.create_job(jobId, employerAddress, amount)
       // For now, we simulate by storing the job data
 
@@ -91,13 +89,14 @@ class EscrowService {
         contractAddress: this.contractAddress
       };
 
-      // Store escrow data (simulating Soroban contract storage)
+      // Remove any existing escrow for this job to prevent duplicates, then store new escrow data
       const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
-      existingEscrows.push({ 
+      const filteredEscrows = existingEscrows.filter((e: any) => e.jobId !== jobId);
+      filteredEscrows.push({ 
         id: escrowId, 
         ...escrowData
       });
-      localStorage.setItem('stellar_escrows', JSON.stringify(existingEscrows));
+      localStorage.setItem('stellar_escrows', JSON.stringify(filteredEscrows));
 
       console.log(`✅ Escrow contract created: ${amount} XLM reserved for job ${jobId}`);
       console.log(`📋 No funds transferred yet - payment will happen on release`);
@@ -408,18 +407,32 @@ class EscrowService {
     completedEscrows: number;
   }> {
     try {
-      const escrows = await this.getEmployerEscrows(employerAddress);
+      // Clean up duplicates first
+      await this.cleanupDuplicateEscrows();
       
-      return {
-        totalLocked: escrows
-          .filter(e => e.status === 'locked')
-          .reduce((sum, e) => sum + e.amount, 0),
-        totalReleased: escrows
-          .filter(e => e.status === 'released')
-          .reduce((sum, e) => sum + e.amount, 0),
-        activEscrows: escrows.filter(e => e.status === 'locked').length,
-        completedEscrows: escrows.filter(e => e.status === 'released').length
+      const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+      const employerEscrows = existingEscrows.filter((e: any) => e.employerAddress === employerAddress);
+
+      const stats = {
+        totalLocked: 0,
+        totalReleased: 0,
+        activEscrows: 0,
+        completedEscrows: 0
       };
+
+      employerEscrows.forEach((escrow: any) => {
+        const amount = parseFloat(escrow.amount) || 0;
+        
+        if (escrow.status === 'locked') {
+          stats.totalLocked += amount;
+          stats.activEscrows += 1;
+        } else if (escrow.status === 'released') {
+          stats.totalReleased += amount;
+          stats.completedEscrows += 1;
+        }
+      });
+
+      return stats;
     } catch (error) {
       console.error('Error getting escrow stats:', error);
       return {
@@ -428,6 +441,31 @@ class EscrowService {
         activEscrows: 0,
         completedEscrows: 0
       };
+    }
+  }
+
+  /**
+   * Clean up duplicate escrows for the same job
+   */
+  private async cleanupDuplicateEscrows(): Promise<void> {
+    try {
+      const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+      const uniqueEscrows: any[] = [];
+      const seenJobIds = new Set<string>();
+
+      // Keep only the latest escrow for each job ID
+      existingEscrows.reverse().forEach((escrow: any) => {
+        if (!seenJobIds.has(escrow.jobId)) {
+          uniqueEscrows.unshift(escrow); // Add to beginning to maintain original order
+          seenJobIds.add(escrow.jobId);
+        } else {
+          console.log(`📋 Removing duplicate escrow for job ${escrow.jobId}`);
+        }
+      });
+
+      localStorage.setItem('stellar_escrows', JSON.stringify(uniqueEscrows));
+    } catch (error) {
+      console.error('Error cleaning up duplicate escrows:', error);
     }
   }
 }

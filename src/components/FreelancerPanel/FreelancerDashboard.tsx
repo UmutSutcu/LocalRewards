@@ -301,14 +301,12 @@ export default function FreelancerDashboard() {
   );
 
   const appliedJobs = myApplications || [];
-  
-  // Calculate reputation metrics
+    // Calculate reputation metrics
   const calculateReputationMetrics = () => {
     if (reputationTokens.length === 0) {
       return {
         totalReputation: 0,
         averageRating: 0,
-        totalEarnings: 0,
         ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
         recentRating: 0
       };
@@ -316,7 +314,6 @@ export default function FreelancerDashboard() {
 
     const totalReputation = reputationTokens.reduce((sum, token) => sum + token.rating, 0);
     const averageRating = totalReputation / reputationTokens.length;
-    const totalEarnings = reputationTokens.reduce((sum, token) => sum + (token.jobBudget || 0), 0);
     
     // Rating distribution
     const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -333,7 +330,6 @@ export default function FreelancerDashboard() {
     return {
       totalReputation,
       averageRating,
-      totalEarnings,
       ratingDistribution,
       recentRating
     };
@@ -636,7 +632,7 @@ export default function FreelancerDashboard() {
                   <p className="text-gray-600">Complete jobs to earn reputation tokens and build your reputation.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Average Rating */}
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-2">
@@ -654,24 +650,13 @@ export default function FreelancerDashboard() {
                         />
                       ))}
                     </div>
-                  </div>
-
-                  {/* Total Tokens */}
+                  </div>                  {/* Total Tokens */}
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-2">
                       <Award className="w-8 h-8 text-purple-600" />
                     </div>
                     <div className="text-2xl font-bold text-gray-900">{reputationTokens.length}</div>
                     <div className="text-sm text-gray-600">Reputation Tokens</div>
-                  </div>
-
-                  {/* Total Earnings */}
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <DollarSign className="w-8 h-8 text-green-600" />
-                    </div>
-                    <div className="text-2xl font-bold text-gray-900">{reputationMetrics.totalEarnings}</div>
-                    <div className="text-sm text-gray-600">Total Earnings</div>
                   </div>
 
                   {/* Recent Performance */}
