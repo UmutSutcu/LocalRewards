@@ -2,7 +2,10 @@
 
 **Stellar blockchain-based P2P freelance marketplace with escrow & reputation system**
 
-🌐 **[Live Demo](https://www.youtube.com/watch?v=2SIYnqw6mAU)** 
+🌐 **[Live Demo](https://starnance.vercel.app)**
+🎥 **[Live Demo Video](https://www.youtube.com/watch?v=2SIYnqw6mAU)**
+🎨 **[Project Presentation](https://www.canva.com/design/DAGrENm4JCM/fhX6dkBMNoqFEJqHXyo41A/view)**
+
 
 [![Stellar](https://img.shields.io/badge/Built%20on-Stellar-black?style=flat&logo=stellar)](https://stellar.org/)
 [![React](https://img.shields.io/badge/Frontend-React-blue?style=flat&logo=react)](https://reactjs.org/)
