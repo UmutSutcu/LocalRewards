@@ -35,9 +35,8 @@ function AppContent() {
             <div className="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center">
               <Star className="w-8 h-8 text-white" />
             </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            StellarFreelance
+          </div>          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Starnance
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Stellar blockchain-based P2P freelance marketplace with escrow & reputation system. 

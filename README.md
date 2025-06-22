@@ -1,4 +1,4 @@
-# 💼 StellarFreelance
+# 💼 Starnance
 
 **Stellar blockchain-based P2P freelance marketplace with escrow & reputation system**
 
@@ -9,7 +9,7 @@
 
 ## 🎯 Overview
 
-StellarFreelance is a decentralized peer-to-peer freelance marketplace built on Stellar blockchain. It features secure escrow payments, soulbound reputation tokens (SBT), and transparent project management - all powered by Soroban smart contracts.
+Starnance is a decentralized peer-to-peer freelance marketplace built on Stellar blockchain. It features secure escrow payments, soulbound reputation tokens (SBT), and transparent project management - all powered by Soroban smart contracts.
 
 ### ✨ Key Features
 
@@ -18,7 +18,7 @@ StellarFreelance is a decentralized peer-to-peer freelance marketplace built on 
 - 👨‍💻 **Freelancer Portal** - Browse jobs, build reputation, and get paid securely
 - 🔒 **Smart Contract Escrow** - Automated payment protection for both parties
 - ⭐ **Soulbound Reputation Tokens** - Non-transferable tokens that build freelancer credibility
-- 💰 **Multi-Currency Support** - XLM and USDC payment options
+- 💰 **Native XLM Payments** - Fast and low-cost transactions on Stellar network
 - 🎯 **Dispute Resolution** - Built-in arbitration system for project conflicts
 
 ### 🏗️ Technical Architecture
@@ -33,7 +33,7 @@ StellarFreelance is a decentralized peer-to-peer freelance marketplace built on 
 - Stellar network (Testnet/Mainnet)
 - Soroban smart contracts for escrow and reputation
 - Freighter wallet integration
-- Multi-asset support (XLM, USDC)
+- Native XLM payments
 
 **Smart Contracts:**
 - **Escrow Contract**: Secure fund locking and release mechanisms
@@ -47,14 +47,13 @@ StellarFreelance is a decentralized peer-to-peer freelance marketplace built on 
 - Node.js 18+
 - npm or yarn
 - Freighter browser wallet
-- Stellar testnet account with XLM/USDC
+- Stellar testnet account with XLM
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/stellar-freelance.git
-   cd stellar-freelance
+1. **Clone the repository**   ```bash
+   git clone https://github.com/yourusername/starnance.git
+   cd starnance
    ```
 
 2. **Install dependencies**
@@ -185,10 +184,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📧 Email: support@stellarfreelance.com
-- 💬 Discord: [Join our community](https://discord.gg/stellarfreelance)
-- 🐦 Twitter: [@StellarFreelance](https://twitter.com/stellarfreelance)
-- 📖 Docs: [Documentation](https://docs.stellarfreelance.com)
+- 📧 Email: support@starnance.com
+- 💬 Discord: [Join our community](https://discord.gg/starnance)
+- 🐦 Twitter: [@Starnance](https://twitter.com/starnance)
+- 📖 Docs: [Documentation](https://docs.starnance.com)
 
 ---
 

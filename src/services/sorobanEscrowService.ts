@@ -1,5 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { Contract, Address, nativeToScVal, scValToNative } from '@stellar/stellar-sdk';
+import { Contract, nativeToScVal } from '@stellar/stellar-sdk';
 import freighterApi from '@stellar/freighter-api';
 import { STELLAR_CONFIG } from './freelanceService';
 import { TransactionResult } from '../types/freelance';
@@ -40,10 +40,8 @@ class SorobanEscrowService {
     employerAddress: string,
     amount: number,
     currency: 'XLM' | 'USDC'
-  ): Promise<TransactionResult & { escrowId?: string }> {
-    try {
-      // Get user's public key
-      const sourceKeypair = StellarSdk.Keypair.fromPublicKey(employerAddress);
+  ): Promise<TransactionResult & { escrowId?: string }> {    try {
+      // Get user's account
       const account = await this.server.loadAccount(employerAddress);
 
       // Determine token contract address

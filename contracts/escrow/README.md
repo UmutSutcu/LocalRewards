@@ -1,11 +1,11 @@
 # Escrow Smart Contract
 
-Bu Soroban smart contract, StellarLocalRewards platformunda freelance işleri için escrow sistemi sağlar.
+Bu Soroban smart contract, Starnance platformunda freelance işleri için escrow sistemi sağlar.
 
 ## Özellikler
 
 ### ✅ Temel Escrow Fonksiyonları
-- **create_escrow**: İşveren tarafından iş başlatılırken XLM/USDC kilitlenir
+- **create_escrow**: İşveren tarafından iş başlatılırken XLM kilitlenir
 - **assign_freelancer**: Kabul edilen freelancer escrow'a atanır
 - **release_escrow**: İş tamamlandığında işveren tarafından ödeme serbest bırakılır
 - **cancel_escrow**: İş iptal edildiğinde işverene geri ödeme

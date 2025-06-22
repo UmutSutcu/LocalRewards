@@ -98,8 +98,7 @@ export default function FreelancerDashboard() {
     try {
       const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
       const escrowMap: { [jobId: string]: EscrowData } = {};
-      
-      existingEscrows.forEach((escrow: any) => {
+        existingEscrows.forEach((escrow: any) => {
         escrowMap[escrow.jobId] = {
           jobId: escrow.jobId,
           employerAddress: escrow.employerAddress,
@@ -108,7 +107,8 @@ export default function FreelancerDashboard() {
           currency: escrow.currency,
           status: escrow.status,
           createdAt: new Date(escrow.createdAt),
-          releasedAt: escrow.releasedAt ? new Date(escrow.releasedAt) : undefined
+          releasedAt: escrow.releasedAt ? new Date(escrow.releasedAt) : undefined,
+          contractAddress: escrow.contractAddress || 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
         };
       });
       
