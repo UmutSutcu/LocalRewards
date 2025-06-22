@@ -100,7 +100,7 @@ export default function WalletConnection({ publicKey, onConnect }: WalletConnect
                 </div>
               </div>
             ) : (
-              <span className="text-gray-400 text-sm">Bağlı değil</span>
+              <span className="text-gray-400 text-sm">Not Connected</span>
             )}
           </div>
         </div>

@@ -251,6 +251,114 @@ class SorobanEscrowService {
   }
 
   /**
+   * Wrapper methods for test component compatibility
+   */
+  async createJob(
+    jobId: string,
+    employerAddress: string,
+    freelancerAddress: string,
+    amount: number
+  ): Promise<TransactionResult> {
+    // Remove any existing escrow for this job to prevent duplicates
+    const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+    const filteredEscrows = existingEscrows.filter((e: any) => e.jobId !== jobId);
+    localStorage.setItem('stellar_escrows', JSON.stringify(filteredEscrows));
+
+    const result = await this.createEscrow(jobId, employerAddress, amount, 'XLM');
+    
+    if (result.status === 'success' && freelancerAddress) {
+      // Assign freelancer if provided
+      await this.assignFreelancer(jobId, freelancerAddress);
+    }
+    
+    return {
+      hash: result.hash,
+      status: result.status,
+      message: result.message
+    };
+  }
+
+  async releasePayment(jobId: string): Promise<TransactionResult> {
+    return this.releaseEscrow(jobId);
+  }
+
+  async getJob(jobId: string): Promise<SorobanEscrowData | null> {
+    // Try to get from Soroban contract first
+    const contractData = await this.getEscrow(jobId);
+    if (contractData) {
+      return contractData;
+    }
+
+    // Fallback to localStorage simulation
+    const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+    const escrow = existingEscrows.find((e: any) => e.jobId === jobId);
+    
+    if (!escrow) {
+      return null;
+    }
+
+    return {
+      job_id: escrow.jobId,
+      employer: escrow.employerAddress,
+      freelancer: escrow.freelancerAddress,
+      amount: escrow.amount.toString(),
+      token: 'XLM',
+      status: escrow.status === 'locked' ? 'Locked' : 
+              escrow.status === 'released' ? 'Released' : 
+              escrow.status === 'cancelled' ? 'Cancelled' : 'Locked',
+      created_at: escrow.createdAt || new Date().toISOString(),
+      deadline: undefined
+    };
+  }
+
+  async cancelJob(jobId: string): Promise<TransactionResult> {
+    return this.cancelEscrow(jobId);
+  }
+
+  /**
+   * Get escrow statistics for dashboard
+   */
+  async getEscrowStats(employerAddress: string): Promise<{
+    totalReserved: number;
+    totalPaid: number;
+    activeEscrows: number;
+    completedPayments: number;
+  }> {
+    try {
+      const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+      const employerEscrows = existingEscrows.filter((e: any) => e.employerAddress === employerAddress);
+
+      const stats = {
+        totalReserved: 0,
+        totalPaid: 0,
+        activeEscrows: 0,
+        completedPayments: 0
+      };
+
+      employerEscrows.forEach((escrow: any) => {
+        const amount = parseFloat(escrow.amount) || 0;
+        
+        if (escrow.status === 'locked') {
+          stats.totalReserved += amount;
+          stats.activeEscrows += 1;
+        } else if (escrow.status === 'released') {
+          stats.totalPaid += amount;
+          stats.completedPayments += 1;
+        }
+      });
+
+      return stats;
+    } catch (error) {
+      console.error('Error getting escrow stats:', error);
+      return {
+        totalReserved: 0,
+        totalPaid: 0,
+        activeEscrows: 0,
+        completedPayments: 0
+      };
+    }
+  }
+  /**
    * Fallback simulation when contract is not available
    */
   private async simulateEscrow(
@@ -259,6 +367,10 @@ class SorobanEscrowService {
     amount: number,
     currency: 'XLM' | 'USDC'
   ): Promise<TransactionResult & { escrowId?: string }> {
+    // Remove any existing escrow for this job to prevent duplicates
+    const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
+    const filteredEscrows = existingEscrows.filter((e: any) => e.jobId !== jobId);
+    
     // Store in localStorage for simulation
     const escrowData = {
       jobId,
@@ -269,10 +381,12 @@ class SorobanEscrowService {
       createdAt: new Date()
     };
 
-    const existingEscrows = JSON.parse(localStorage.getItem('stellar_escrows') || '[]');
     const escrowId = `escrow_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
-    existingEscrows.push({ id: escrowId, ...escrowData });
-    localStorage.setItem('stellar_escrows', JSON.stringify(existingEscrows));
+    filteredEscrows.push({ id: escrowId, ...escrowData });
+    localStorage.setItem('stellar_escrows', JSON.stringify(filteredEscrows));
+
+    console.log(`✅ Soroban escrow simulation: ${amount} ${currency} reserved for job ${jobId}`);
+    console.log(`📋 Previous duplicate escrows for job ${jobId} have been removed`);
 
     return {
       hash: `simulation_${Date.now()}`,
