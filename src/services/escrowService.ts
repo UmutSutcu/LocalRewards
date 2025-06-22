@@ -5,7 +5,7 @@ import { STELLAR_CONFIG } from './freelanceService';
 
 // Extract needed classes from StellarSdk
 const { 
-  TransactionBuilder, 
+  TransactionBuilder,
   Operation, 
   BASE_FEE
 } = StellarSdk;
